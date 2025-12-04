@@ -1,10 +1,10 @@
 import React, { Component } from 'react';
 import axios from 'axios';
-import ReactLoading from 'react-loading';
-import { Form, Button, Card, ListGroup, Row, Col } from 'react-bootstrap';
+import { Form, Button, ListGroup, Spinner } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 
 class GitHub extends Component {
-  constructor(){
+  constructor() {
     super();
     this.state = {
       data: [],
@@ -27,7 +27,7 @@ class GitHub extends Component {
     this.setState({ searchTerm: e.target.value });
   }
 
-  getGitHubData(_searchTerm){
+  getGitHubData(_searchTerm) {
     axios.get("https://api.github.com/search/users?q=" + _searchTerm)
       .then(res => {
         this.setState({
@@ -40,58 +40,52 @@ class GitHub extends Component {
 
   render() {
     const listUsers = this.state.data.map((user) =>
-      <Card key={user.id} className="mb-3">
-        <Card.Body>
-          <Row>
-            <Col xs={2}>
-              <a href={user.html_url} target="_blank" rel="noopener noreferrer">
-                <img
-                  width={64}
-                  height={64}
-                  src={user.avatar_url}
-                  alt={user.login}
-                  className="rounded"
-                />
-              </a>
-            </Col>
-            <Col xs={10}>
-              <Card.Title>Login: {user.login}</Card.Title>
-              <Card.Text>Id: {user.id}</Card.Text>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
+      <ListGroup.Item key={user.id} className="d-flex align-items-center">
+        <Link to={`/github/user/${user.login}/${user.id}`}>
+          <img
+            width={64}
+            height={64}
+            className="me-3 rounded"
+            src={user.avatar_url}
+            alt={user.login}
+          />
+        </Link>
+        <div>
+          <h5>Login: {user.login}</h5>
+          <p className="mb-0">Id: {user.id}</p>
+        </div>
+      </ListGroup.Item>
     );
 
     return (
       <div className="container mt-4">
         <Form onSubmit={this.handleSubmit} className="mb-4">
-          <Row>
-            <Col xs={8}>
-              <Form.Control
-                type="text"
-                value={this.state.searchTerm}
-                placeholder="Enter Search Term"
-                onChange={this.handleChange}
-              />
-            </Col>
-            <Col xs={4}>
-              <Button type="submit" variant="primary" className="w-100">
-                Search
-              </Button>
-            </Col>
-          </Row>
+          <Form.Group className="mb-3">
+            <Form.Control
+              type="text"
+              value={this.state.searchTerm}
+              placeholder="Enter Search Term"
+              onChange={this.handleChange}
+            />
+          </Form.Group>
+          <Button type="submit" variant="primary">
+            Search
+          </Button>
         </Form>
-        
+
         <h3>GitHub Users Results</h3>
-        
+
         {this.state.isLoading &&
-          <div className="d-flex justify-content-center">
-            <ReactLoading type="spinningBubbles" color="#444" />
+          <div className="d-flex justify-content-center my-4">
+            <Spinner animation="border" role="status" variant="primary">
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
           </div>
         }
-        
-        {listUsers}
+
+        <ListGroup>
+          {listUsers}
+        </ListGroup>
       </div>
     );
   }
