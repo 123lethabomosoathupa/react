@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/database';
 import { Table, Button, Modal } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';  // FIXED: moved here
 
 class User extends Component {
   constructor(props) {
@@ -120,8 +120,6 @@ class User extends Component {
 }
 
 // Wrapper to use navigate in class component
-import { useNavigate } from 'react-router-dom';
-
 function UserWithRouter(props) {
   const navigate = useNavigate();
   return <User {...props} navigate={navigate} />;
