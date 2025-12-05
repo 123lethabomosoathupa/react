@@ -1,16 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createStore } from 'redux';
-import { Provider } from 'react-redux';
-import cartReducer from './reducer';
+import './index.css';
 import App from './App';
-import 'bootstrap/dist/css/bootstrap.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-const store = createStore(cartReducer);
-
 root.render(
-  <Provider store={store}>
+  <React.StrictMode>
     <App />
-  </Provider>
+  </React.StrictMode>
 );

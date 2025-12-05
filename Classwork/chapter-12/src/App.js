@@ -1,32 +1,40 @@
-import { connect } from "react-redux";
-import Cart from "./Cart";
+import React, { useState } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { Button } from 'react-bootstrap';
+import useFetch from './useFetch';
+import Users from './Users';
 
-function mapStateToProps(state) {
-  return {
-    totalCost: state.totalCost,
-    productCart: state.productCart
-  };
-}
+const App = () => {
+  const postsUrl = "https://jsonplaceholder.typicode.com/posts";
+  const todosUrl = "https://jsonplaceholder.typicode.com/todos";
+  
+  const [requested, setRequested] = useState(postsUrl);
+  const data = useFetch(requested);
+  
+  return (
+    <div className="container mt-4">
+      <Users />
+      
+      <Button 
+        variant="link" 
+        onClick={() => setRequested(postsUrl)}>
+        Posts
+      </Button>
+      <Button 
+        variant="link" 
+        onClick={() => setRequested(todosUrl)}>
+        Todos
+      </Button>
+      <br />
+      <p>Requested: {requested}</p>
+      
+      <ul>
+        {data.map(el => (
+          <li key={el.id}>{el.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
 
-function mapDispatchToProps(dispatch) {
-  return {
-    onAddProduct: (productName, productPrice) => dispatch({
-      type: "addProduct",
-      productData: {
-        productName: productName,
-        productPrice: productPrice
-      }
-    }),
-    onDeleteProduct: (productData) => dispatch({
-      type: "deleteProduct",
-      productData: productData
-    })
-  };
-}
-
-const connectedComponent = connect(
-  mapStateToProps,
-  mapDispatchToProps
-)(Cart);
-
-export default connectedComponent;
+export default App;
