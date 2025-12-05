@@ -2,21 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Redux Persons Example</title>
+    <title>Redux Persons Example (With Comments)</title>
   </head>
   <body>
-    <h1>Open the console to see Redux state changes</h1>
+    <h1>Open the Console to See Redux State Changes</h1>
 
-    <!-- Redux CDN (small, convenient for examples) -->
-    <script src="https://unpkg.com/redux@4.2.1/dist/redux.min.js"></script>
+    <!-- Load Redux from CDN so we can use it without installation -->
+    <script src="https://unpkg.com/redux@4.0.1/dist/redux.min.js"></script>
 
     <script>
-      // -----------------------
-      // 1) Action creators
-      // -----------------------
+      // ============================================================
+      // 1) ACTION CREATORS
+      // Action creators are functions that return ACTION OBJECTS.
+      // Actions describe "WHAT happened", not "HOW to change state".
+      // ============================================================
+
+      // Action creator for adding a person
       function addPerson(id, name, age) {
         return {
+          // Required property: type = name of the action
           type: "ADD",
+
+          // Data needed by the reducer to update the state
           personData: {
             id: id,
             name: name,
@@ -25,6 +32,7 @@
         };
       }
 
+      // Action creator for removing a person
       function removePerson(id) {
         return {
           type: "REMOVE",
@@ -32,63 +40,101 @@
         };
       }
 
-      // -----------------------
-      // 2) Reducer
-      // -----------------------
+
+      // ============================================================
+      // 2) REDUCER FUNCTION
+      // A reducer takes 2 arguments:
+      //      (state, action) → newState
+      // Reducers MUST be pure functions:
+      //  - no side effects
+      //  - no mutation of existing state
+      //  - always return a NEW state object
+      // ============================================================
+
+      // Initial shape of our Redux state
       const initialState = {
-        persons: []
+        persons: []  // initially an empty list
       };
 
       function reducer(state, action) {
+        // If Redux calls the reducer with "undefined",
+        // return the initial state.
         if (state === undefined) {
           state = initialState;
         }
 
+        // Check the action type
         if (action.type === "ADD") {
+          // Build the new person object
           const newPerson = {
             id: action.personData.id,
             name: action.personData.name,
             age: action.personData.age
           };
+
+          // Return a NEW state object (no mutation!)
           return {
-            ...state,
-            persons: state.persons.concat(newPerson)
+            ...state, // copy the existing state
+            persons: state.persons.concat(newPerson) // add the new person
           };
+
+
         } else if (action.type === "REMOVE") {
+
+          // Filter out the person with matching ID
           return {
-            ...state,
+            ...state, // keep existing state fields
             persons: state.persons.filter(person => person.id !== action.personId)
           };
+
+
         } else {
+          // If the reducer does not understand the action,
+          // ALWAYS return the current state.
           return state;
         }
       }
 
-      // -----------------------
-      // 3) Create store and subscribe
-      // -----------------------
+
+      // ============================================================
+      // 3) CREATING THE STORE + SUBSCRIPTION
+      // The store:
+      //  - holds the state
+      //  - lets you dispatch actions
+      //  - notifies subscribers when state changes
+      // ============================================================
+
+      // Create the store with our reducer
       const store = Redux.createStore(reducer);
+
+      // Subscribe a listener function that runs
+      // every time an action is dispatched.
       store.subscribe(showState);
 
+      // This function logs the state to the console
       function showState() {
-        console.clear();
-        console.log("Current store state:", store.getState());
+        console.clear(); // cleaner view
+        console.log("Current Redux State:", store.getState());
       }
 
-      // -----------------------
-      // 4) Dispatch some actions (example)
-      // -----------------------
+
+      // ============================================================
+      // 4) DISPATCHING ACTIONS
+      // These INSERT persons and REMOVE one, showing state updates.
+      // ============================================================
+
       store.dispatch(addPerson(1, "Greg", 5));
       store.dispatch(addPerson(2, "Carol", 3));
       store.dispatch(addPerson(3, "Gabriel", 6));
       store.dispatch(addPerson(4, "Fred", 8));
 
-      // remove one person
+      // Example of removing a person
       store.dispatch(removePerson(4));
 
-      // Now you can experiment from the console:
-      // store.dispatch(addPerson(5, "New", 10));
+      // From the browser console you can test:
+      // store.dispatch(addPerson(5, "Test", 12));
       // store.dispatch(removePerson(2));
+
     </script>
   </body>
 </html>
