@@ -5,36 +5,56 @@ import { Table, Button, Modal } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 
-// Wrapper to provide navigate function to class component
+/* ------------------------------------------------------------------
+   withNavigate:
+   A wrapper that injects React Router v6's `useNavigate` hook 
+   into a class component. Since hooks cannot be used directly 
+   in class components, we inject them as props.
+-------------------------------------------------------------------*/
 function withNavigate(Component) {
   return props => <Component {...props} navigate={useNavigate()} />;
 }
 
 class User extends Component {
+
   constructor(props){
     super(props);
+
+    // Component state stores UI state and data fetched from Firebase
     this.state = {
-      users: [],
-      showDeleteDialog: false,
-      selectedUser: {},
-      loading: true,
-      error: null
+      users: [],             // List of users fetched from Firebase
+      showDeleteDialog: false, // Boolean controlling delete modal visibility
+      selectedUser: {},      // Stores the user selected for deletion
+      loading: true,         // Controls loading spinner
+      error: null            // Stores error messages (if any)
     };
+
+    // Binding event handlers
     this.add = this.add.bind(this);
     this.openDeleteDialog = this.openDeleteDialog.bind(this);
     this.closeDeleteDialog = this.closeDeleteDialog.bind(this);
     this.delete = this.delete.bind(this);
   }
 
+  /* ------------------------------------------------------------------
+     componentDidMount:
+     Runs once when the component is first loaded.
+     - Checks Firebase initialization
+     - Fetches users from Firebase
+     - Handles timeouts + error reporting
+  -------------------------------------------------------------------*/
   componentDidMount(){
     console.log("=== Firebase Debug Info ===");
     console.log("Firebase app initialized:", firebase.apps.length > 0);
-    
+
     if (firebase.apps.length > 0) {
       console.log("Database URL:", firebase.app().options.databaseURL);
     }
-    
-    // Set a timeout to stop loading if no response after 5 seconds
+
+    /* --------------------------------------------------------------
+       Safety timeout:
+       Prevents infinite loading in case Firebase hangs or fails.
+    ---------------------------------------------------------------*/
     const connectionTimeout = setTimeout(() => {
       console.error("Firebase connection timeout - forcing loading to stop");
       this.setState({
@@ -42,29 +62,36 @@ class User extends Component {
         error: null,
         users: []
       });
-    }, 5000);
-    
+    }, 5000); // 5 seconds timeout
+
     try {
       const dbRef = firebase.database().ref('/');
-      
+
+      /* --------------------------------------------------------------
+         Fetch all users from Firebase (Realtime Database)
+         once('value') = fetch snapshot once (no real-time listener)
+      ---------------------------------------------------------------*/
       dbRef.once('value')
         .then((snapshot) => {
           clearTimeout(connectionTimeout);
           console.log("Firebase snapshot received!");
           console.log("Snapshot exists:", snapshot.exists());
           console.log("Snapshot value:", snapshot.val());
-          
+
           let returnArr = [];
-          
+
+          // Convert Firebase object into array of user objects
           if (snapshot.exists()) {
             snapshot.forEach(data => {
               var user = data.val();
-              user['key'] = data.key;
+              user['key'] = data.key; // Save Firebase key for edit/delete
               returnArr.push(user);
             });
           }
-          
+
           console.log("Users array length:", returnArr.length);
+
+          // Update component state with users
           this.setState({
             users: returnArr,
             loading: false,
@@ -73,17 +100,20 @@ class User extends Component {
         })
         .catch((error) => {
           clearTimeout(connectionTimeout);
+
+          // Handle Firebase errors gracefully
           console.error("Firebase error:", error);
-          console.error("Error code:", error.code);
-          console.error("Error message:", error.message);
           this.setState({ 
             loading: false,
             error: `Firebase Error: ${error.message}`,
             users: []
           });
         });
+
     } catch (error) {
       clearTimeout(connectionTimeout);
+
+      // Handles errors during Firebase setup
       console.error("Error setting up Firebase:", error);
       this.setState({ 
         loading: false,
@@ -93,18 +123,29 @@ class User extends Component {
     }
   }
 
+  /* ------------------------------------------------------------------
+     componentWillUnmount:
+     Clean up Firebase listeners if they were ever attached.
+  -------------------------------------------------------------------*/
   componentWillUnmount() {
     try {
-      firebase.database().ref('/').off();
+      firebase.database().ref('/').off(); // Removes listeners safely
     } catch (error) {
       console.error("Error cleaning up Firebase listener:", error);
     }
   }
 
+  /* ------------------------------------------------------------------
+     Navigates to the Add User form
+  -------------------------------------------------------------------*/
   add(e) {
     this.props.navigate("/add");
   }
 
+  /* ------------------------------------------------------------------
+     Opens delete confirmation modal
+     user = the user object you clicked "Remove" on
+  -------------------------------------------------------------------*/
   openDeleteDialog(user){
     this.setState({
       showDeleteDialog: true,
@@ -112,6 +153,9 @@ class User extends Component {
     });
   }
 
+  /* ------------------------------------------------------------------
+     Closes delete confirmation modal
+  -------------------------------------------------------------------*/
   closeDeleteDialog() {
     this.setState({
       showDeleteDialog: false,
@@ -119,12 +163,18 @@ class User extends Component {
     });
   }
 
+  /* ------------------------------------------------------------------
+     Deletes a user from Firebase using its unique key
+  -------------------------------------------------------------------*/
   delete(e) {
     firebase.database().ref('/' + this.state.selectedUser.key).remove()
       .then(() => {
         console.log("User deleted successfully");
+
+        // Close modal
         this.closeDeleteDialog();
-        // Refresh the list
+
+        // Refresh user list
         this.componentDidMount();
       })
       .catch(error => {
@@ -133,7 +183,16 @@ class User extends Component {
       });
   }
 
+  /* ------------------------------------------------------------------
+     Renders the component UI
+     - Shows loading spinner
+     - Error message
+     - User table
+     - Delete modal
+  -------------------------------------------------------------------*/
   render() {
+
+    /* ------------------- LOADING UI ------------------- */
     if (this.state.loading) {
       return (
         <div className="text-center mt-5">
@@ -146,6 +205,7 @@ class User extends Component {
       );
     }
 
+    /* ------------------- ERROR UI ------------------- */
     if (this.state.error) {
       return (
         <div className="alert alert-danger mt-5" role="alert">
@@ -160,16 +220,19 @@ class User extends Component {
       );
     }
 
+    /* ------------------- USER TABLE ------------------- */
     const listUsers = this.state.users.map((user) =>
       <tr key={user.key}>
         <td>{user.username}</td>
         <td>{user.email}</td>
         <td>
+          {/* Edit button navigates to edit form */}
           <Link to={`/edit/${user.key}`} className="btn btn-sm btn-info">
             Edit
           </Link>
         </td>
         <td>
+          {/* Opens the confirmation dialog */}
           <Button variant="danger" size="sm" onClick={() => this.openDeleteDialog(user)}>
             Remove
           </Button>
@@ -180,8 +243,13 @@ class User extends Component {
     return (
       <div>
         <h1>User Management</h1>
-        <Button variant="primary" onClick={this.add} className="mb-3">Add User</Button>
-        
+
+        {/* Add User button */}
+        <Button variant="primary" onClick={this.add} className="mb-3">
+          Add User
+        </Button>
+
+        {/* Show message if no users exist */}
         {this.state.users.length === 0 ? (
           <div className="alert alert-info" role="alert">
             <p className="mb-0">No users found. Click "Add User" to create your first user.</p>
@@ -201,7 +269,8 @@ class User extends Component {
             </tbody>
           </Table>
         )}
-        
+
+        {/* ------------------- DELETE MODAL ------------------- */}
         <Modal show={this.state.showDeleteDialog} onHide={this.closeDeleteDialog}>
           <Modal.Header closeButton>
             <Modal.Title>Delete User</Modal.Title>
