@@ -1,0 +1,885 @@
+# Building a Todo App with ReactJS and Firebase
+
+## Overview
+This guide walks you through building a full-stack todo application with:
+- **Frontend**: ReactJS with Material-UI
+- **Backend**: Firebase Functions with Express
+- **Database**: Firestore
+- **Authentication**: Firebase Auth
+- **Storage**: Firebase Storage (for profile pictures)
+
+---
+
+## Part 1: Firebase Backend Setup
+
+### 1. Initialize Firebase Functions
+
+```bash
+# Install Firebase CLI
+npm install -g firebase-tools
+
+# Login to Firebase
+firebase login
+
+# Initialize Firebase Functions
+firebase init
+# Select: Functions, JavaScript, ESLint (N), Install dependencies (Y)
+```
+
+### 2. Create API Structure
+
+**functions/index.js**
+```javascript
+const functions = require('firebase-functions');
+const app = require('express')();
+const auth = require('./util/auth');
+
+const {
+    getAllTodos,
+    postOneTodo,
+    deleteTodo,
+    editTodo
+} = require('./APIs/todos');
+
+const {
+    loginUser,
+    signUpUser,
+    uploadProfilePhoto,
+    getUserDetail,
+    updateUserDetails
+} = require('./APIs/users');
+
+// Todo routes
+app.get('/todos', auth, getAllTodos);
+app.post('/todo', auth, postOneTodo);
+app.delete('/todo/:todoId', auth, deleteTodo);
+app.put('/todo/:todoId', auth, editTodo);
+
+// User routes
+app.post('/login', loginUser);
+app.post('/signup', signUpUser);
+app.post('/user/image', auth, uploadProfilePhoto);
+app.get('/user', auth, getUserDetail);
+app.post('/user', auth, updateUserDetails);
+
+exports.api = functions.https.onRequest(app);
+```
+
+### 3. Todo APIs
+
+**functions/APIs/todos.js**
+```javascript
+const { db } = require('../util/admin');
+
+exports.getAllTodos = (request, response) => {
+    db.collection('todos')
+        .where('username', '==', request.user.username)
+        .orderBy('createdAt', 'desc')
+        .get()
+        .then((data) => {
+            let todos = [];
+            data.forEach((doc) => {
+                todos.push({
+                    todoId: doc.id,
+                    title: doc.data().title,
+                    body: doc.data().body,
+                    createdAt: doc.data().createdAt,
+                });
+            });
+            return response.json(todos);
+        })
+        .catch((err) => {
+            console.error(err);
+            return response.status(500).json({ error: err.code });
+        });
+};
+
+exports.postOneTodo = (request, response) => {
+    if (request.body.body.trim() === '') {
+        return response.status(400).json({ body: 'Must not be empty' });
+    }
+    if(request.body.title.trim() === '') {
+        return response.status(400).json({ title: 'Must not be empty' });
+    }
+
+    const newTodoItem = {
+        title: request.body.title,
+        body: request.body.body,
+        username: request.user.username,
+        createdAt: new Date().toISOString()
+    };
+
+    db.collection('todos')
+        .add(newTodoItem)
+        .then((doc) => {
+            const responseTodoItem = newTodoItem;
+            responseTodoItem.id = doc.id;
+            return response.json(responseTodoItem);
+        })
+        .catch((err) => {
+            response.status(500).json({ error: 'Something went wrong' });
+            console.error(err);
+        });
+};
+
+exports.deleteTodo = (request, response) => {
+    const document = db.doc(`/todos/${request.params.todoId}`);
+    document.get()
+        .then((doc) => {
+            if (!doc.exists) {
+                return response.status(404).json({ error: 'Todo not found' });
+            }
+            if(doc.data().username !== request.user.username){
+                return response.status(403).json({ error: 'UnAuthorized' });
+            }
+            return document.delete();
+        })
+        .then(() => {
+            response.json({ message: 'Delete successfull' });
+        })
+        .catch((err) => {
+            console.error(err);
+            return response.status(500).json({ error: err.code });
+        });
+};
+
+exports.editTodo = (request, response) => { 
+    if(request.body.todoId || request.body.createdAt){
+        response.status(403).json({ message: 'Not allowed to edit' });
+    }
+    let document = db.collection('todos').doc(`${request.params.todoId}`);
+    document.update(request.body)
+        .then(() => {
+            response.json({ message: 'Updated successfully' });
+        })
+        .catch((err) => {
+            console.error(err);
+            return response.status(500).json({ error: err.code });
+        });
+};
+```
+
+### 4. User APIs
+
+**functions/APIs/users.js**
+```javascript
+const { admin, db } = require('../util/admin');
+const config = require('../util/config');
+const firebase = require('firebase');
+
+firebase.initializeApp(config);
+
+const { validateLoginData, validateSignUpData } = require('../util/validators');
+
+exports.loginUser = (request, response) => {
+    const user = {
+        email: request.body.email,
+        password: request.body.password
+    };
+
+    const { valid, errors } = validateLoginData(user);
+    if (!valid) return response.status(400).json(errors);
+
+    firebase.auth()
+        .signInWithEmailAndPassword(user.email, user.password)
+        .then((data) => {
+            return data.user.getIdToken();
+        })
+        .then((token) => {
+            return response.json({ token });
+        })
+        .catch((error) => {
+            console.error(error);
+            return response.status(403).json({ general: 'wrong credentials, please try again'});
+        });
+};
+
+exports.signUpUser = (request, response) => {
+    const newUser = {
+        firstName: request.body.firstName,
+        lastName: request.body.lastName,
+        email: request.body.email,
+        phoneNumber: request.body.phoneNumber,
+        country: request.body.country,
+        password: request.body.password,
+        confirmPassword: request.body.confirmPassword,
+        username: request.body.username
+    };
+
+    const { valid, errors } = validateSignUpData(newUser);
+    if (!valid) return response.status(400).json(errors);
+
+    let token, userId;
+    db.doc(`/users/${newUser.username}`)
+        .get()
+        .then((doc) => {
+            if (doc.exists) {
+                return response.status(400).json({ username: 'this username is already taken' });
+            } else {
+                return firebase.auth().createUserWithEmailAndPassword(newUser.email, newUser.password);
+            }
+        })
+        .then((data) => {
+            userId = data.user.uid;
+            return data.user.getIdToken();
+        })
+        .then((idtoken) => {
+            token = idtoken;
+            const userCredentials = {
+                firstName: newUser.firstName,
+                lastName: newUser.lastName,
+                username: newUser.username,
+                phoneNumber: newUser.phoneNumber,
+                country: newUser.country,
+                email: newUser.email,
+                createdAt: new Date().toISOString(),
+                userId
+            };
+            return db.doc(`/users/${newUser.username}`).set(userCredentials);
+        })
+        .then(() => {
+            return response.status(201).json({ token });
+        })
+        .catch((err) => {
+            console.error(err);
+            if (err.code === 'auth/email-already-in-use') {
+                return response.status(400).json({ email: 'Email already in use' });
+            } else {
+                return response.status(500).json({ general: 'Something went wrong, please try again' });
+            }
+        });
+};
+
+exports.uploadProfilePhoto = (request, response) => {
+    const BusBoy = require('busboy');
+    const path = require('path');
+    const os = require('os');
+    const fs = require('fs');
+    const busboy = new BusBoy({ headers: request.headers });
+
+    let imageFileName;
+    let imageToBeUploaded = {};
+
+    busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+        if (mimetype !== 'image/png' && mimetype !== 'image/jpeg') {
+            return response.status(400).json({ error: 'Wrong file type submited' });
+        }
+        const imageExtension = filename.split('.')[filename.split('.').length - 1];
+        imageFileName = `${request.user.username}.${imageExtension}`;
+        const filePath = path.join(os.tmpdir(), imageFileName);
+        imageToBeUploaded = { filePath, mimetype };
+        file.pipe(fs.createWriteStream(filePath));
+    });
+
+    busboy.on('finish', () => {
+        admin.storage()
+            .bucket()
+            .upload(imageToBeUploaded.filePath, {
+                resumable: false,
+                metadata: {
+                    metadata: {
+                        contentType: imageToBeUploaded.mimetype
+                    }
+                }
+            })
+            .then(() => {
+                const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${config.storageBucket}/o/${imageFileName}?alt=media`;
+                return db.doc(`/users/${request.user.username}`).update({ imageUrl });
+            })
+            .then(() => {
+                return response.json({ message: 'Image uploaded successfully' });
+            })
+            .catch((error) => {
+                console.error(error);
+                return response.status(500).json({ error: error.code });
+            });
+    });
+    busboy.end(request.rawBody);
+};
+
+exports.getUserDetail = (request, response) => {
+    let userData = {};
+    db.doc(`/users/${request.user.username}`)
+        .get()
+        .then((doc) => {
+            if (doc.exists) {
+                userData.userCredentials = doc.data();
+                return response.json(userData);
+            }    
+        })
+        .catch((error) => {
+            console.error(error);
+            return response.status(500).json({ error: error.code });
+        });
+};
+
+exports.updateUserDetails = (request, response) => {
+    let document = db.collection('users').doc(`${request.user.username}`);
+    document.update(request.body)
+        .then(() => {
+            response.json({ message: 'Updated successfully' });
+        })
+        .catch((error) => {
+            console.error(error);
+            return response.status(500).json({ message: "Cannot Update the value" });
+        });
+};
+```
+
+### 5. Utility Files
+
+**functions/util/admin.js**
+```javascript
+const admin = require('firebase-admin');
+
+admin.initializeApp();
+
+const db = admin.firestore();
+
+module.exports = { admin, db };
+```
+
+**functions/util/auth.js**
+```javascript
+const { admin, db } = require('./admin');
+
+module.exports = (request, response, next) => {
+    let idToken;
+    if (request.headers.authorization && request.headers.authorization.startsWith('Bearer ')) {
+        idToken = request.headers.authorization.split('Bearer ')[1];
+    } else {
+        console.error('No token found');
+        return response.status(403).json({ error: 'Unauthorized' });
+    }
+    admin.auth()
+        .verifyIdToken(idToken)
+        .then((decodedToken) => {
+            request.user = decodedToken;
+            return db.collection('users').where('userId', '==', request.user.uid).limit(1).get();
+        })
+        .then((data) => {
+            request.user.username = data.docs[0].data().username;
+            request.user.imageUrl = data.docs[0].data().imageUrl;
+            return next();
+        })
+        .catch((err) => {
+            console.error('Error while verifying token', err);
+            return response.status(403).json(err);
+        });
+};
+```
+
+**functions/util/config.js**
+```javascript
+module.exports = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    databaseURL: "YOUR_DATABASE_URL",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID",
+    measurementId: "YOUR_MEASUREMENT_ID"
+};
+```
+
+**functions/util/validators.js**
+```javascript
+const isEmpty = (string) => {
+    if (string.trim() === '') return true;
+    else return false;
+};
+
+const isEmail = (email) => {
+    const emailRegEx = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    if (email.match(emailRegEx)) return true;
+    else return false;
+};
+
+exports.validateLoginData = (data) => {
+    let errors = {};
+    if (isEmpty(data.email)) errors.email = 'Must not be empty';
+    if (isEmpty(data.password)) errors.password = 'Must not be empty';
+    return {
+        errors,
+        valid: Object.keys(errors).length === 0 ? true : false
+    };
+};
+
+exports.validateSignUpData = (data) => {
+    let errors = {};
+
+    if (isEmpty(data.email)) {
+        errors.email = 'Must not be empty';
+    } else if (!isEmail(data.email)) {
+        errors.email = 'Must be valid email address';
+    }
+
+    if (isEmpty(data.firstName)) errors.firstName = 'Must not be empty';
+    if (isEmpty(data.lastName)) errors.lastName = 'Must not be empty';
+    if (isEmpty(data.phoneNumber)) errors.phoneNumber = 'Must not be empty';
+    if (isEmpty(data.country)) errors.country = 'Must not be empty';
+    if (isEmpty(data.password)) errors.password = 'Must not be empty';
+    if (data.password !== data.confirmPassword) errors.confirmPassword = 'Passwords must be the same';
+    if (isEmpty(data.username)) errors.username = 'Must not be empty';
+
+    return {
+        errors,
+        valid: Object.keys(errors).length === 0 ? true : false
+    };
+};
+```
+
+### 6. Deploy Backend
+
+```bash
+# Install dependencies
+cd functions
+npm install express firebase firebase-admin busboy
+
+# Deploy to Firebase
+firebase deploy
+```
+
+---
+
+## Part 2: React Frontend
+
+### 1. Create React App
+
+```bash
+# Create React app
+npx create-react-app view
+cd view
+
+# Install dependencies
+npm install @material-ui/core @material-ui/icons axios react-router-dom dayjs
+```
+
+### 2. Configure Proxy
+
+Add to **package.json**:
+```json
+"proxy": "https://YOUR-REGION-YOUR-PROJECT-ID.cloudfunctions.net/api"
+```
+
+### 3. Main App Component
+
+**src/App.js**
+```javascript
+import React from 'react';
+import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import { ThemeProvider as MuiThemeProvider } from '@material-ui/core/styles';
+import createMuiTheme from '@material-ui/core/styles/createMuiTheme';
+
+import login from './pages/login';
+import signup from './pages/signup';
+import home from './pages/home';
+
+const theme = createMuiTheme({
+    palette: {
+        primary: {
+            light: '#33c9dc',
+            main: '#FF5722',
+            dark: '#d50000',
+            contrastText: '#fff'
+        }
+    }
+});
+
+function App() {
+    return (
+        <MuiThemeProvider theme={theme}>
+            <Router>
+                <div>
+                    <Switch>
+                        <Route exact path="/login" component={login}/>
+                        <Route exact path="/signup" component={signup}/>
+                        <Route exact path="/" component={home}/>
+                    </Switch>
+                </div>
+            </Router>
+        </MuiThemeProvider>
+    );
+}
+
+export default App;
+```
+
+### 4. Auth Utility
+
+**src/util/auth.js**
+```javascript
+export const authMiddleWare = (history) => {
+    const authToken = localStorage.getItem('AuthToken');
+    if(authToken === null){
+        history.push('/login');
+    }
+};
+```
+
+### 5. Login Page
+
+**src/pages/login.js**
+```javascript
+import React, { Component } from 'react';
+import Avatar from '@material-ui/core/Avatar';
+import Button from '@material-ui/core/Button';
+import CssBaseline from '@material-ui/core/CssBaseline';
+import TextField from '@material-ui/core/TextField';
+import Link from '@material-ui/core/Link';
+import Grid from '@material-ui/core/Grid';
+import LockOutlinedIcon from '@material-ui/icons/LockOutlined';
+import Typography from '@material-ui/core/Typography';
+import withStyles from '@material-ui/core/styles/withStyles';
+import Container from '@material-ui/core/Container';
+import CircularProgress from '@material-ui/core/CircularProgress';
+import axios from 'axios';
+
+const styles = (theme) => ({
+    paper: {
+        marginTop: theme.spacing(8),
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+    },
+    avatar: {
+        margin: theme.spacing(1),
+        backgroundColor: theme.palette.secondary.main
+    },
+    form: {
+        width: '100%',
+        marginTop: theme.spacing(1)
+    },
+    submit: {
+        margin: theme.spacing(3, 0, 2)
+    },
+    customError: {
+        color: 'red',
+        fontSize: '0.8rem',
+        marginTop: 10
+    },
+    progess: {
+        position: 'absolute'
+    }
+});
+
+class login extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            email: '',
+            password: '',
+            errors: [],
+            loading: false
+        };
+    }
+
+    handleChange = (event) => {
+        this.setState({
+            [event.target.name]: event.target.value
+        });
+    };
+
+    handleSubmit = (event) => {
+        event.preventDefault();
+        this.setState({ loading: true });
+        const userData = {
+            email: this.state.email,
+            password: this.state.password
+        };
+        axios.post('/login', userData)
+            .then((response) => {
+                localStorage.setItem('AuthToken', `Bearer ${response.data.token}`);
+                this.setState({ loading: false });        
+                this.props.history.push('/');
+            })
+            .catch((error) => {                
+                this.setState({
+                    errors: error.response.data,
+                    loading: false
+                });
+            });
+    };
+
+    render() {
+        const { classes } = this.props;
+        const { errors, loading } = this.state;
+        return (
+            <Container component="main" maxWidth="xs">
+                <CssBaseline />
+                <div className={classes.paper}>
+                    <Avatar className={classes.avatar}>
+                        <LockOutlinedIcon />
+                    </Avatar>
+                    <Typography component="h1" variant="h5">
+                        Login
+                    </Typography>
+                    <form className={classes.form} noValidate>
+                        <TextField
+                            variant="outlined"
+                            margin="normal"
+                            required
+                            fullWidth
+                            id="email"
+                            label="Email Address"
+                            name="email"
+                            autoComplete="email"
+                            autoFocus
+                            helperText={errors.email}
+                            error={errors.email ? true : false}
+                            onChange={this.handleChange}
+                        />
+                        <TextField
+                            variant="outlined"
+                            margin="normal"
+                            required
+                            fullWidth
+                            name="password"
+                            label="Password"
+                            type="password"
+                            id="password"
+                            autoComplete="current-password"
+                            helperText={errors.password}
+                            error={errors.password ? true : false}
+                            onChange={this.handleChange}
+                        />
+                        <Button
+                            type="submit"
+                            fullWidth
+                            variant="contained"
+                            color="primary"
+                            className={classes.submit}
+                            onClick={this.handleSubmit}
+                            disabled={loading || !this.state.email || !this.state.password}
+                        >
+                            Sign In
+                            {loading && <CircularProgress size={30} className={classes.progess} />}
+                        </Button>
+                        <Grid container>
+                            <Grid item>
+                                <Link href="signup" variant="body2">
+                                    {"Don't have an account? Sign Up"}
+                                </Link>
+                            </Grid>
+                        </Grid>
+                        {errors.general && (
+                            <Typography variant="body2" className={classes.customError}>
+                                {errors.general}
+                            </Typography>
+                        )}
+                    </form>
+                </div>
+            </Container>
+        );
+    }
+}
+
+export default withStyles(styles)(login);
+```
+
+### 6. Home Page (Dashboard)
+
+**src/pages/home.js**
+```javascript
+import React, { Component } from 'react';
+import axios from 'axios';
+import Account from '../components/account';
+import Todo from '../components/todo';
+import Drawer from '@material-ui/core/Drawer';
+import AppBar from '@material-ui/core/AppBar';
+import CssBaseline from '@material-ui/core/CssBaseline';
+import Toolbar from '@material-ui/core/Toolbar';
+import List from '@material-ui/core/List';
+import Typography from '@material-ui/core/Typography';
+import Divider from '@material-ui/core/Divider';
+import ListItem from '@material-ui/core/ListItem';
+import ListItemIcon from '@material-ui/core/ListItemIcon';
+import ListItemText from '@material-ui/core/ListItemText';
+import withStyles from '@material-ui/core/styles/withStyles';
+import AccountBoxIcon from '@material-ui/icons/AccountBox';
+import NotesIcon from '@material-ui/icons/Notes';
+import Avatar from '@material-ui/core/Avatar';
+import ExitToAppIcon from '@material-ui/icons/ExitToApp';
+import CircularProgress from '@material-ui/core/CircularProgress';
+import { authMiddleWare } from '../util/auth';
+
+const drawerWidth = 240;
+
+const styles = (theme) => ({
+    root: {
+        display: 'flex'
+    },
+    appBar: {
+        zIndex: theme.zIndex.drawer + 1
+    },
+    drawer: {
+        width: drawerWidth,
+        flexShrink: 0
+    },
+    drawerPaper: {
+        width: drawerWidth
+    },
+    content: {
+        flexGrow: 1,
+        padding: theme.spacing(3)
+    },
+    avatar: {
+        height: 110,
+        width: 100,
+        flexShrink: 0,
+        flexGrow: 0,
+        marginTop: 20
+    },
+    uiProgess: {
+        position: 'fixed',
+        zIndex: '1000',
+        height: '31px',
+        width: '31px',
+        left: '50%',
+        top: '35%'
+    },
+    toolbar: theme.mixins.toolbar
+});
+
+class home extends Component {
+    state = {
+        render: false
+    };
+
+    loadAccountPage = (event) => {
+        this.setState({ render: true });
+    };
+
+    loadTodoPage = (event) => {
+        this.setState({ render: false });
+    };
+
+    logoutHandler = (event) => {
+        localStorage.removeItem('AuthToken');
+        this.props.history.push('/login');
+    };
+
+    constructor(props) {
+        super(props);
+        this.state = {
+            firstName: '',
+            lastName: '',
+            profilePicture: '',
+            uiLoading: true,
+            imageLoading: false
+        };
+    }
+
+    componentWillMount = () => {
+        authMiddleWare(this.props.history);
+        const authToken = localStorage.getItem('AuthToken');
+        axios.defaults.headers.common = { Authorization: `${authToken}` };
+        axios.get('/user')
+            .then((response) => {
+                this.setState({
+                    firstName: response.data.userCredentials.firstName,
+                    lastName: response.data.userCredentials.lastName,
+                    email: response.data.userCredentials.email,
+                    phoneNumber: response.data.userCredentials.phoneNumber,
+                    country: response.data.userCredentials.country,
+                    username: response.data.userCredentials.username,
+                    uiLoading: false,
+                    profilePicture: response.data.userCredentials.imageUrl
+                });
+            })
+            .catch((error) => {
+                if(error.response.status === 403) {
+                    this.props.history.push('/login');
+                }
+                console.log(error);
+                this.setState({ errorMsg: 'Error in retrieving the data' });
+            });
+    };
+
+    render() {
+        const { classes } = this.props;        
+        if (this.state.uiLoading === true) {
+            return (
+                <div className={classes.root}>
+                    {this.state.uiLoading && <CircularProgress size={150} className={classes.uiProgess} />}
+                </div>
+            );
+        } else {
+            return (
+                <div className={classes.root}>
+                    <CssBaseline />
+                    <AppBar position="fixed" className={classes.appBar}>
+                        <Toolbar>
+                            <Typography variant="h6" noWrap>
+                                TodoApp
+                            </Typography>
+                        </Toolbar>
+                    </AppBar>
+                    <Drawer
+                        className={classes.drawer}
+                        variant="permanent"
+                        classes={{ paper: classes.drawerPaper }}
+                    >
+                        <div className={classes.toolbar} />
+                        <Divider />
+                        <center>
+                            <Avatar src={this.state.profilePicture} className={classes.avatar} />
+                            <p>{this.state.firstName} {this.state.lastName}</p>
+                        </center>
+                        <Divider />
+                        <List>
+                            <ListItem button key="Todo" onClick={this.loadTodoPage}>
+                                <ListItemIcon><NotesIcon /></ListItemIcon>
+                                <ListItemText primary="Todo" />
+                            </ListItem>
+                            <ListItem button key="Account" onClick={this.loadAccountPage}>
+                                <ListItemIcon><AccountBoxIcon /></ListItemIcon>
+                                <ListItemText primary="Account" />
+                            </ListItem>
+                            <ListItem button key="Logout" onClick={this.logoutHandler}>
+                                <ListItemIcon><ExitToAppIcon /></ListItemIcon>
+                                <ListItemText primary="Logout" />
+                            </ListItem>
+                        </List>
+                    </Drawer>
+                    <div>{this.state.render ? <Account /> : <Todo />}</div>
+                </div>
+            );
+        }
+    }
+}
+
+export default withStyles(styles)(home);
+```
+
+---
+
+## Installation & Deployment
+
+### Backend
+```bash
+cd functions
+npm install
+firebase deploy
+```
+
+### Frontend
+```bash
+cd view
+npm install
+npm start
+```
+
+## Key Features
+
+✅ User authentication (signup/login)
+✅ Create, read, update, delete todos
+✅ User profile management
+✅ Profile picture upload
+✅ Responsive Material-UI design
+✅ Real-time database with Firestore
+✅ Secure API with authentication middleware
+
+## Repository
+Full code: https://github.com/Sharvin26/TodoApp
