@@ -1,7 +1,24 @@
 {
   "todos": [
-    { "id": 1, "text": "finishing writing hooks chapter" },
-    { "id": 2, "text": "play with kids" },
-    { "id": 3, "text": "read bible" }
+    {
+      "id": "1",
+      "text": "complete the book"
+    },
+    {
+      "id": "2",
+      "text": "play with kids"
+    },
+    {
+      "id": "9c4bb6e4-75c2-4d50-b77b-3e98ec41fb24",
+      "text": "no"
+    },
+    {
+      "id": "3d3f5ed4-0eda-4b9d-a5fc-3ed9b9bb826d",
+      "text": "yes"
+    },
+    {
+      "id": "3b41c8af-357f-4780-a9b4-7ad02d927d34",
+      "text": "nope"
+    }
   ]
 }

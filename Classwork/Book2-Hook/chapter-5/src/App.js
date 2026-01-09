@@ -4,8 +4,8 @@ import React from 'react';
 // Import Bootstrap CSS for styling and layout
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-// Import the JumbotronComponent to display a header/banner section
-import JumbotronComponent from './JumbotronComponent';
+// Import the JumboTronComponent to display a header/banner section
+import JumboTronComponent from './JumboTronComponent'; // ← Changed to match file name
 
 // Import the Products component to display the product list
 import Products from './Products';
@@ -16,11 +16,11 @@ function App() {
   // Return the JSX that will be rendered in the browser
   return (
     <div>
-      {/* Jumbotron component displaying a welcome message */}
+      {/* JumboTron component displaying a welcome message */}
       {/* The text inside is passed as children */}
-      <JumbotronComponent>
+      <JumboTronComponent>
         Welcome to our product catalog! Browse our amazing selection of products below.
-      </JumbotronComponent>
+      </JumboTronComponent>
 
       {/* Render the Products component */}
       <Products />

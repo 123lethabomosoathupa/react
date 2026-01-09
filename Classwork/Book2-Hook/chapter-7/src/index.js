@@ -1,31 +1,30 @@
-// Import React library to enable JSX
+// Import the core React library
 import React from 'react';
 
-// Import ReactDOM to render React components into the DOM
-import ReactDOM from 'react-dom';
+// Import ReactDOM for rendering React components into the DOM
+import ReactDOM from 'react-dom/client';
 
-// Import global CSS for the app
+// Import global CSS styles for the application
 import './index.css';
 
 // Import the main App component
 import App from './App';
 
-// Import service worker functions (for offline caching, optional)
-import * as serviceWorker from './serviceWorker';
+// Import performance measuring utility (optional)
+import reportWebVitals from './reportWebVitals';
 
-// Import Bootstrap CSS for responsive styling
-import 'bootstrap/dist/css/bootstrap.min.css';
+// Create a root DOM node where the React application will be rendered
+const root = ReactDOM.createRoot(document.getElementById('root'));
 
-// Render the App component inside the root div in index.html
-ReactDOM.render(
-  // React.StrictMode helps detect potential problems during development
+// Render the App component inside React.StrictMode
+// StrictMode helps highlight potential problems during development
+root.render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>,
-
-  // Target the HTML element with id="root"
-  document.getElementById('root')
+  </React.StrictMode>
 );
 
-// Unregister the service worker (app will not work offline)
-serviceWorker.unregister();
+// Optional: measure and report app performance
+// You can log results with: reportWebVitals(console.log)
+// Or send metrics to an analytics service
+reportWebVitals();

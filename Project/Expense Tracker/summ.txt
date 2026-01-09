@@ -1,0 +1,3 @@
+Chapter 8 shows how to build a React CRUD ToDo app using Hooks.
+It introduces useContext to avoid props drilling and useReducer to manage global state instead of Redux.
+By combining these hooks, the app can add, display, edit, and delete todos while keeping state clean and organized.
