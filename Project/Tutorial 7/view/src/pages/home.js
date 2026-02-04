@@ -1,5 +1,4 @@
-import React, { Component } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Account from '../components/account';
 import Todo from '../components/todo';
@@ -19,6 +18,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import AccountBoxIcon from '@mui/icons-material/AccountBox';
 import NotesIcon from '@mui/icons-material/Notes';
 import { styled } from '@mui/material/styles';
+import axios from '../util/axiosConfig'; // Import configured axios instance
 
 const drawerWidth = 240;
 
@@ -67,21 +67,61 @@ const ToolbarSpacer = styled('div')(({ theme }) => ({
 
 function Home() {
   const navigate = useNavigate();
-  const [state, setState] = React.useState({
-    render: false,
+  const [userData, setUserData] = useState({
     firstName: '',
     lastName: '',
-    profilePicture: '',
-    uiLoading: true,
-    imageLoading: false
+    email: '',
+    phoneNumber: '',
+    country: '',
+    username: '',
+    profilePicture: ''
   });
+  const [renderAccount, setRenderAccount] = useState(false);
+  const [uiLoading, setUiLoading] = useState(true);
+
+  useEffect(() => {
+    const authToken = localStorage.getItem('AuthToken');
+    if (!authToken) {
+      navigate('/login');
+      return;
+    }
+
+    // Set authorization header
+    axios.defaults.headers.common = { Authorization: `${authToken}` };
+
+    // Real API call to fetch user data from Firebase
+    axios
+      .get('/user')
+      .then((response) => {
+        console.log('User data fetched successfully:', response.data);
+        setUserData({
+          firstName: response.data.userCredentials.firstName,
+          lastName: response.data.userCredentials.lastName,
+          email: response.data.userCredentials.email,
+          phoneNumber: response.data.userCredentials.phoneNumber,
+          country: response.data.userCredentials.country,
+          username: response.data.userCredentials.username,
+          profilePicture: response.data.userCredentials.imageUrl || ''
+        });
+        setUiLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error fetching user data:', error);
+        if (error.response && error.response.status === 403) {
+          console.log('Authentication failed, redirecting to login');
+          localStorage.removeItem('AuthToken');
+          navigate('/login');
+        }
+        setUiLoading(false);
+      });
+  }, [navigate]);
 
   const loadAccountPage = () => {
-    setState(prev => ({ ...prev, render: true }));
+    setRenderAccount(true);
   };
 
   const loadTodoPage = () => {
-    setState(prev => ({ ...prev, render: false }));
+    setRenderAccount(false);
   };
 
   const logoutHandler = () => {
@@ -89,116 +129,64 @@ function Home() {
     navigate('/login');
   };
 
-  React.useEffect(() => {
-    const authToken = localStorage.getItem('AuthToken');
-    if (!authToken) {
-      navigate('/login');
-      return;
-    }
-
-    axios.defaults.headers.common = { Authorization: `${authToken}` };
-
-    // Simulate loading user data
-    // Replace this with actual API call when backend is ready
-    setTimeout(() => {
-      setState({
-        render: false,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        phoneNumber: '1234567890',
-        country: 'USA',
-        username: 'johndoe',
-        uiLoading: false,
-        profilePicture: ''
-      });
-    }, 1000);
-
-    /* Uncomment this when you have a backend
-    axios
-      .get('/user')
-      .then((response) => {
-        setState({
-          render: false,
-          firstName: response.data.userCredentials.firstName,
-          lastName: response.data.userCredentials.lastName,
-          email: response.data.userCredentials.email,
-          phoneNumber: response.data.userCredentials.phoneNumber,
-          country: response.data.userCredentials.country,
-          username: response.data.userCredentials.username,
-          uiLoading: false,
-          profilePicture: response.data.userCredentials.imageUrl
-        });
-      })
-      .catch((error) => {
-        if(error.response && error.response.status === 403) {
-          navigate('/login');
-        }
-        console.log(error);
-        setState(prev => ({ ...prev, errorMsg: 'Error in retrieving the data' }));
-      });
-    */
-  }, [navigate]);
-
-  if (state.uiLoading === true) {
+  if (uiLoading) {
     return (
       <RootDiv>
-        {state.uiLoading && <UiProgress size={150} />}
-      </RootDiv>
-    );
-  } else {
-    return (
-      <RootDiv>
-        <CssBaseline />
-        <StyledAppBar position="fixed">
-          <Toolbar>
-            <Typography variant="h6" noWrap>
-              TodoApp
-            </Typography>
-          </Toolbar>
-        </StyledAppBar>
-        <StyledDrawer variant="permanent">
-          <ToolbarSpacer />
-          <Divider />
-          <center>
-            <StyledAvatar src={state.profilePicture} />
-            <p>
-              {' '}
-              {state.firstName} {state.lastName}
-            </p>
-          </center>
-          <Divider />
-          <List>
-            <ListItem button key="Todo" onClick={loadTodoPage}>
-              <ListItemIcon>
-                <NotesIcon />
-              </ListItemIcon>
-              <ListItemText primary="Todo" />
-            </ListItem>
-
-            <ListItem button key="Account" onClick={loadAccountPage}>
-              <ListItemIcon>
-                <AccountBoxIcon />
-              </ListItemIcon>
-              <ListItemText primary="Account" />
-            </ListItem>
-
-            <ListItem button key="Logout" onClick={logoutHandler}>
-              <ListItemIcon>
-                <ExitToAppIcon />
-              </ListItemIcon>
-              <ListItemText primary="Logout" />
-            </ListItem>
-          </List>
-        </StyledDrawer>
-
-        <ContentDiv>
-          <ToolbarSpacer />
-          {state.render ? <Account /> : <Todo />}
-        </ContentDiv>
+        <UiProgress size={150} />
       </RootDiv>
     );
   }
+
+  return (
+    <RootDiv>
+      <CssBaseline />
+      <StyledAppBar position="fixed">
+        <Toolbar>
+          <Typography variant="h6" noWrap>
+            TodoApp
+          </Typography>
+        </Toolbar>
+      </StyledAppBar>
+      <StyledDrawer variant="permanent">
+        <ToolbarSpacer />
+        <Divider />
+        <center>
+          <StyledAvatar src={userData.profilePicture} alt={userData.firstName} />
+          <p>
+            {userData.firstName} {userData.lastName}
+          </p>
+        </center>
+        <Divider />
+        <List>
+          <ListItem button key="Todo" onClick={loadTodoPage}>
+            <ListItemIcon>
+              <NotesIcon />
+            </ListItemIcon>
+            <ListItemText primary="Todo" />
+          </ListItem>
+
+          <ListItem button key="Account" onClick={loadAccountPage}>
+            <ListItemIcon>
+              <AccountBoxIcon />
+            </ListItemIcon>
+            <ListItemText primary="Account" />
+          </ListItem>
+
+          <ListItem button key="Logout" onClick={logoutHandler}>
+            <ListItemIcon>
+              <ExitToAppIcon />
+            </ListItemIcon>
+            <ListItemText primary="Logout" />
+          </ListItem>
+        </List>
+      </StyledDrawer>
+
+      <ContentDiv>
+        <ToolbarSpacer />
+        {renderAccount ? <Account /> : <Todo />}
+      </ContentDiv>
+    </RootDiv>
+  );
 }
 
 export default Home;

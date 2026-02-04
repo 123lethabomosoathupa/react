@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import CircularProgress from '@mui/material/CircularProgress';
 import { styled } from '@mui/material/styles';
+import axios from 'axios';
 
 const StyledContainer = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(8),
@@ -45,69 +46,55 @@ const ProgressStyle = styled(CircularProgress)({
 
 function Login() {
   const navigate = useNavigate();
-  const [state, setState] = React.useState({
-    email: '',
-    password: '',
-    errors: {},
-    loading: false
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (localStorage.getItem('AuthToken')) {
       navigate('/');
     }
   }, [navigate]);
 
-  const handleChange = (event) => {
-    setState(prev => ({
-      ...prev,
-      [event.target.name]: event.target.value
-    }));
-  };
-
   const handleSubmit = (event) => {
     event.preventDefault();
-    setState(prev => ({ ...prev, loading: true }));
+    setLoading(true);
+    setErrors({}); // Clear previous errors
+    
     const userData = {
-      email: state.email,
-      password: state.password
+      email,
+      password
     };
     
-    // For now, just simulate login with localStorage
-    // Replace this with actual API call when backend is ready
-    setTimeout(() => {
-      if (userData.email && userData.password) {
-        localStorage.setItem('AuthToken', `Bearer ${Date.now()}`);
-        setState(prev => ({ ...prev, loading: false }));
-        navigate('/');
-      } else {
-        setState(prev => ({
-          ...prev,
-          errors: { general: 'Please fill in all fields' },
-          loading: false
-        }));
-      }
-    }, 1000);
+    console.log('Attempting login with email:', email);
 
-    /* Uncomment this when you have a backend
+    // Real API call to Firebase backend
     axios
       .post('/login', userData)
       .then((response) => {
+        console.log('Login successful');
         localStorage.setItem('AuthToken', `Bearer ${response.data.token}`);
-        setState(prev => ({ ...prev, loading: false }));
+        setLoading(false);
         navigate('/');
       })
       .catch((error) => {
-        setState(prev => ({
-          ...prev,
-          errors: error.response.data,
-          loading: false
-        }));
+        console.error('Login error:', error);
+        console.error('Error response:', error.response);
+        
+        if (error.response) {
+          setErrors(error.response.data || { general: 'Login failed. Please try again.' });
+        } else if (error.request) {
+          setErrors({ 
+            general: 'Cannot connect to server. Please check your API URL in axiosConfig.js' 
+          });
+        } else {
+          setErrors({ general: error.message });
+        }
+        setLoading(false);
       });
-    */
   };
 
-  const { errors, loading } = state;
   return (
     <Container component="main" maxWidth="xs">
       <CssBaseline />
@@ -118,7 +105,7 @@ function Login() {
         <Typography component="h1" variant="h5">
           Login
         </Typography>
-        <StyledForm noValidate>
+        <StyledForm noValidate onSubmit={handleSubmit}>
           <TextField
             variant="outlined"
             margin="normal"
@@ -129,9 +116,10 @@ function Login() {
             name="email"
             autoComplete="email"
             autoFocus
+            value={email}
             helperText={errors.email}
-            error={errors.email ? true : false}
-            onChange={handleChange}
+            error={!!errors.email}
+            onChange={(e) => setEmail(e.target.value)}
           />
           <TextField
             variant="outlined"
@@ -143,17 +131,17 @@ function Login() {
             type="password"
             id="password"
             autoComplete="current-password"
+            value={password}
             helperText={errors.password}
-            error={errors.password ? true : false}
-            onChange={handleChange}
+            error={!!errors.password}
+            onChange={(e) => setPassword(e.target.value)}
           />
           <StyledButton
             type="submit"
             fullWidth
             variant="contained"
             color="primary"
-            onClick={handleSubmit}
-            disabled={loading || !state.email || !state.password}
+            disabled={loading || !email || !password}
           >
             Sign In
             {loading && <ProgressStyle size={30} />}

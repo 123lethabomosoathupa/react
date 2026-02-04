@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { styled } from '@mui/material/styles';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -10,12 +10,11 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import Grid from '@mui/material/Grid';
-import axios from 'axios';
+import axios from '../util/axiosConfig'; // Import configured axios instance
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -26,25 +25,10 @@ const ContentDiv = styled('div')({
   padding: '20px'
 });
 
-const TitleTypography = styled(Typography)({
-  marginLeft: '15px'
-});
-
-const SubmitButton = styled(Button)({
-  display: 'block',
-  color: 'white',
-  textAlign: 'center',
-  position: 'absolute',
-  top: '14px',
-  right: '10px'
-});
-
 const FloatingButton = styled(Button)({
   position: 'fixed',
-  bottom: '0px',
-  right: '0px',
-  marginBottom: '30px',
-  marginRight: '30px'
+  bottom: '30px',
+  right: '30px'
 });
 
 const UiProgress = styled(CircularProgress)({
@@ -65,302 +49,249 @@ const CardPos = styled(Typography)({
   marginBottom: 12
 });
 
-class Todo extends Component {
-  constructor(props) {
-    super(props);
+function Todo() {
+  const [todos, setTodos] = useState([]);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [todoId, setTodoId] = useState('');
+  const [open, setOpen] = useState(false);
+  const [uiLoading, setUiLoading] = useState(true);
+  const [buttonType, setButtonType] = useState('');
+  const [viewOpen, setViewOpen] = useState(false);
 
-    this.state = {
-      todos: [],
-      title: '',
-      body: '',
-      todoId: '',
-      errors: {},
-      open: false,
-      uiLoading: true,
-      buttonType: '',
-      viewOpen: false
-    };
-  }
-
-  componentDidMount = () => {
-    // Simulate loading todos from localStorage
-    // Replace this with actual API call when backend is ready
-    const savedTodos = JSON.parse(localStorage.getItem('todos') || '[]');
-    this.setState({
-      todos: savedTodos,
-      uiLoading: false
-    });
-
-    /* Uncomment this when you have a backend
+  useEffect(() => {
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
+
+    // Real API call to fetch todos
     axios
       .get('/todos')
       .then((response) => {
-        this.setState({
-          todos: response.data,
-          uiLoading: false
-        });
+        console.log('Todos fetched successfully:', response.data);
+        setTodos(response.data);
+        setUiLoading(false);
       })
       .catch((err) => {
-        console.log(err);
+        console.error('Error fetching todos:', err);
+        setUiLoading(false);
       });
-    */
-  };
+  }, []);
 
-  deleteTodoHandler = (todoId) => {
+  const deleteTodoHandler = (id) => {
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
 
-    // Delete from localStorage
-    const updatedTodos = this.state.todos.filter((todo) => todo.todoId !== todoId);
-    localStorage.setItem('todos', JSON.stringify(updatedTodos));
-    this.setState({ todos: updatedTodos });
+    console.log('Deleting todo:', id);
 
-    /* Uncomment this when you have a backend
+    // Real API call to delete todo
     axios
-      .delete(`/todo/${todoId}`)
+      .delete(`/todo/${id}`)
       .then(() => {
+        console.log('Todo deleted successfully');
         window.location.reload();
       })
       .catch((err) => {
-        console.log(err);
+        console.error('Error deleting todo:', err);
       });
-    */
   };
 
-  handleEditClickOpen = (todo) => {
-    this.setState({
-      title: todo.title,
-      body: todo.body,
-      todoId: todo.todoId,
-      buttonType: 'Edit',
-      open: true
-    });
+  const handleEditClickOpen = (todo) => {
+    setTitle(todo.title);
+    setBody(todo.body);
+    setTodoId(todo.todoId);
+    setButtonType('Edit');
+    setOpen(true);
   };
 
-  handleViewOpen = (todo) => {
-    this.setState({
-      title: todo.title,
-      body: todo.body,
-      viewOpen: true
-    });
+  const handleViewOpen = (todo) => {
+    setTitle(todo.title);
+    setBody(todo.body);
+    setViewOpen(true);
   };
 
-  handleSubmit = (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
     const userTodo = {
-      title: this.state.title,
-      body: this.state.body
+      title,
+      body
     };
 
     let options = {};
-    if (this.state.buttonType === 'Edit') {
-      // Update existing todo in localStorage
-      const updatedTodos = this.state.todos.map((todo) =>
-        todo.todoId === this.state.todoId ? { ...todo, ...userTodo } : todo
-      );
-      localStorage.setItem('todos', JSON.stringify(updatedTodos));
-      this.setState({ todos: updatedTodos, open: false });
-
-      /* Uncomment this when you have a backend
+    if (buttonType === 'Edit') {
+      console.log('Updating todo:', todoId, userTodo);
+      // Real API call to update todo
       options = {
-        url: `/todo/${this.state.todoId}`,
+        url: `/todo/${todoId}`,
         method: 'put',
         data: userTodo
       };
-      */
     } else {
-      // Add new todo to localStorage
-      const newTodo = {
-        ...userTodo,
-        todoId: Date.now().toString(),
-        createdAt: new Date().toISOString()
-      };
-      const updatedTodos = [newTodo, ...this.state.todos];
-      localStorage.setItem('todos', JSON.stringify(updatedTodos));
-      this.setState({ todos: updatedTodos, open: false });
-
-      /* Uncomment this when you have a backend
+      console.log('Creating new todo:', userTodo);
+      // Real API call to create todo
       options = {
         url: '/todo',
         method: 'post',
         data: userTodo
       };
-      */
     }
 
-    /* Uncomment this when you have a backend
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
     axios(options)
       .then(() => {
-        this.setState({ open: false });
+        console.log('Todo operation successful');
+        setOpen(false);
         window.location.reload();
       })
       .catch((error) => {
-        this.setState({ open: true, errors: error.response.data });
-        console.log(error);
+        console.error('Error with todo operation:', error);
+        setOpen(true);
       });
-    */
   };
 
-  handleClickOpen = () => {
-    this.setState({
-      title: '',
-      body: '',
-      buttonType: '',
-      open: true
-    });
+  const handleClickOpen = () => {
+    setTitle('');
+    setBody('');
+    setButtonType('');
+    setOpen(true);
   };
 
-  handleClose = () => {
-    this.setState({ open: false });
+  const handleClose = () => {
+    setOpen(false);
   };
 
-  handleViewClose = () => {
-    this.setState({ viewOpen: false });
+  const handleViewClose = () => {
+    setViewOpen(false);
   };
 
-  handleChange = (event) => {
-    this.setState({
-      [event.target.name]: event.target.value
-    });
-  };
+  const dialogTitle = buttonType === 'Edit' ? 'Edit Todo' : 'Create a new Todo';
+  const submitButtonText = buttonType === 'Edit' ? 'Save' : 'Submit';
 
-  render() {
-    const DialogTitle2 = this.state.buttonType === 'Edit' ? 'Edit Todo' : 'Create a new Todo';
-    const ButtonType = this.state.buttonType === 'Edit' ? 'Save' : 'Submit';
-
-    if (this.state.uiLoading === true) {
-      return (
-        <ContentDiv>
-          {this.state.uiLoading && <UiProgress size={150} />}
-        </ContentDiv>
-      );
-    } else {
-      return (
-        <ContentDiv>
-          <IconButton
-            color="primary"
-            aria-label="Add Todo"
-            onClick={this.handleClickOpen}
-            size="large"
-          >
-            <FloatingButton variant="contained" color="primary">
-              Add Todo
-            </FloatingButton>
-          </IconButton>
-
-          <Dialog open={this.state.open} onClose={this.handleClose} fullWidth maxWidth="sm">
-            <DialogTitle>{DialogTitle2}</DialogTitle>
-            <DialogContent>
-              <TextField
-                autoFocus
-                margin="dense"
-                id="todoTitle"
-                label="Todo Title"
-                type="text"
-                fullWidth
-                name="title"
-                onChange={this.handleChange}
-                value={this.state.title}
-              />
-              <TextField
-                margin="dense"
-                id="todoDetails"
-                label="Todo Details"
-                type="text"
-                fullWidth
-                name="body"
-                multiline
-                rows={4}
-                onChange={this.handleChange}
-                value={this.state.body}
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={this.handleClose} color="primary">
-                Cancel
-              </Button>
-              <Button onClick={this.handleSubmit} color="primary">
-                {ButtonType}
-              </Button>
-            </DialogActions>
-          </Dialog>
-
-          <Grid container spacing={2}>
-            {this.state.todos.map((todo) => (
-              <Grid item xs={12} sm={6} key={todo.todoId}>
-                <StyledCard variant="outlined">
-                  <CardContent>
-                    <Typography variant="h5" component="h2">
-                      {todo.title}
-                    </Typography>
-                    <CardPos color="textSecondary">
-                      {dayjs(todo.createdAt).fromNow()}
-                    </CardPos>
-                    <Typography variant="body2" component="p">
-                      {todo.body.substring(0, 65)}
-                      {todo.body.length > 65 ? '...' : ''}
-                    </Typography>
-                  </CardContent>
-                  <CardActions>
-                    <Button size="small" color="primary" onClick={() => this.handleViewOpen(todo)}>
-                      View
-                    </Button>
-                    <Button size="small" color="primary" onClick={() => this.handleEditClickOpen(todo)}>
-                      <EditIcon />
-                    </Button>
-                    <Button size="small" color="secondary" onClick={() => this.deleteTodoHandler(todo.todoId)}>
-                      <DeleteIcon />
-                    </Button>
-                  </CardActions>
-                </StyledCard>
-              </Grid>
-            ))}
-          </Grid>
-
-          <Dialog open={this.state.viewOpen} onClose={this.handleViewClose} fullWidth maxWidth="sm">
-            <DialogTitle>View Todo</DialogTitle>
-            <DialogContent>
-              <TextField
-                margin="dense"
-                id="todoTitle"
-                label="Todo Title"
-                type="text"
-                fullWidth
-                name="title"
-                value={this.state.title}
-                InputProps={{
-                  readOnly: true
-                }}
-              />
-              <TextField
-                margin="dense"
-                id="todoDetails"
-                label="Todo Details"
-                type="text"
-                fullWidth
-                name="body"
-                multiline
-                rows={4}
-                value={this.state.body}
-                InputProps={{
-                  readOnly: true
-                }}
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={this.handleViewClose} color="primary">
-                Close
-              </Button>
-            </DialogActions>
-          </Dialog>
-        </ContentDiv>
-      );
-    }
+  if (uiLoading) {
+    return (
+      <ContentDiv>
+        <UiProgress size={150} />
+      </ContentDiv>
+    );
   }
+
+  return (
+    <ContentDiv>
+      <FloatingButton 
+        variant="contained" 
+        color="primary"
+        onClick={handleClickOpen}
+      >
+        Add Todo
+      </FloatingButton>
+
+      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+        <DialogTitle>{dialogTitle}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            id="todoTitle"
+            label="Todo Title"
+            type="text"
+            fullWidth
+            name="title"
+            onChange={(e) => setTitle(e.target.value)}
+            value={title}
+          />
+          <TextField
+            margin="dense"
+            id="todoDetails"
+            label="Todo Details"
+            type="text"
+            fullWidth
+            name="body"
+            multiline
+            rows={4}
+            onChange={(e) => setBody(e.target.value)}
+            value={body}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} color="primary">
+            {submitButtonText}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Grid container spacing={2}>
+        {todos.map((todo) => (
+          <Grid item xs={12} sm={6} key={todo.todoId}>
+            <StyledCard variant="outlined">
+              <CardContent>
+                <Typography variant="h5" component="h2">
+                  {todo.title}
+                </Typography>
+                <CardPos color="textSecondary">
+                  {dayjs(todo.createdAt).fromNow()}
+                </CardPos>
+                <Typography variant="body2" component="p">
+                  {todo.body.substring(0, 65)}
+                  {todo.body.length > 65 ? '...' : ''}
+                </Typography>
+              </CardContent>
+              <CardActions>
+                <Button size="small" color="primary" onClick={() => handleViewOpen(todo)}>
+                  View
+                </Button>
+                <Button size="small" color="primary" onClick={() => handleEditClickOpen(todo)}>
+                  <EditIcon />
+                </Button>
+                <Button size="small" color="secondary" onClick={() => deleteTodoHandler(todo.todoId)}>
+                  <DeleteIcon />
+                </Button>
+              </CardActions>
+            </StyledCard>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Dialog open={viewOpen} onClose={handleViewClose} fullWidth maxWidth="sm">
+        <DialogTitle>View Todo</DialogTitle>
+        <DialogContent>
+          <TextField
+            margin="dense"
+            id="todoTitle"
+            label="Todo Title"
+            type="text"
+            fullWidth
+            name="title"
+            value={title}
+            InputProps={{
+              readOnly: true
+            }}
+          />
+          <TextField
+            margin="dense"
+            id="todoDetails"
+            label="Todo Details"
+            type="text"
+            fullWidth
+            name="body"
+            multiline
+            rows={4}
+            value={body}
+            InputProps={{
+              readOnly: true
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleViewClose} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </ContentDiv>
+  );
 }
 
 export default Todo;

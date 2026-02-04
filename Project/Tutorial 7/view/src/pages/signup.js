@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import CircularProgress from '@mui/material/CircularProgress';
 import { styled } from '@mui/material/styles';
+import axios from 'axios';
 
 const StyledContainer = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(8),
@@ -45,7 +46,7 @@ const ProgressStyle = styled(CircularProgress)({
 
 function Signup() {
   const navigate = useNavigate();
-  const [state, setState] = React.useState({
+  const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     phoneNumber: '',
@@ -53,76 +54,72 @@ function Signup() {
     username: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    errors: {},
-    loading: false
+    confirmPassword: ''
   });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (localStorage.getItem('AuthToken')) {
       navigate('/');
     }
   }, [navigate]);
 
   const handleChange = (event) => {
-    setState(prev => ({
-      ...prev,
+    setFormData({
+      ...formData,
       [event.target.name]: event.target.value
-    }));
+    });
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    setState(prev => ({ ...prev, loading: true }));
-    
-    const newUserData = {
-      firstName: state.firstName,
-      lastName: state.lastName,
-      phoneNumber: state.phoneNumber,
-      country: state.country,
-      username: state.username,
-      email: state.email,
-      password: state.password,
-      confirmPassword: state.confirmPassword
-    };
+    setLoading(true);
+    setErrors({}); // Clear previous errors
 
-    // Simple validation
-    if (newUserData.password !== newUserData.confirmPassword) {
-      setState(prev => ({
-        ...prev,
-        errors: { confirmPassword: 'Passwords do not match' },
-        loading: false
-      }));
+    // Client-side validation
+    if (formData.password !== formData.confirmPassword) {
+      setErrors({ confirmPassword: 'Passwords do not match' });
+      setLoading(false);
       return;
     }
 
-    // For now, just simulate signup with localStorage
-    // Replace this with actual API call when backend is ready
-    setTimeout(() => {
-      localStorage.setItem('AuthToken', `Bearer ${Date.now()}`);
-      setState(prev => ({ ...prev, loading: false }));
-      navigate('/');
-    }, 1000);
+    // Log the data being sent (for debugging)
+    console.log('Attempting signup with data:', {
+      ...formData,
+      password: '***',
+      confirmPassword: '***'
+    });
 
-    /* Uncomment this when you have a backend
+    // Real API call to Firebase backend
     axios
-      .post('/signup', newUserData)
+      .post('/signup', formData)
       .then((response) => {
+        console.log('Signup successful:', response.data);
         localStorage.setItem('AuthToken', `Bearer ${response.data.token}`);
-        setState(prev => ({ ...prev, loading: false }));
+        setLoading(false);
         navigate('/');
       })
       .catch((error) => {
-        setState(prev => ({
-          ...prev,
-          errors: error.response.data,
-          loading: false
-        }));
+        console.error('Signup error:', error);
+        console.error('Error response:', error.response);
+        
+        if (error.response) {
+          // Server responded with an error
+          setErrors(error.response.data || { general: 'Signup failed. Please try again.' });
+        } else if (error.request) {
+          // Request was made but no response received
+          setErrors({ 
+            general: 'Cannot connect to server. Please check your API URL in axiosConfig.js' 
+          });
+        } else {
+          // Something else happened
+          setErrors({ general: error.message });
+        }
+        setLoading(false);
       });
-    */
   };
 
-  const { errors, loading } = state;
   return (
     <Container component="main" maxWidth="xs">
       <CssBaseline />
@@ -133,7 +130,7 @@ function Signup() {
         <Typography component="h1" variant="h5">
           Sign up
         </Typography>
-        <StyledForm noValidate>
+        <StyledForm noValidate onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -143,9 +140,10 @@ function Signup() {
                 id="firstName"
                 label="First Name"
                 name="firstName"
-                autoComplete="firstName"
+                autoComplete="given-name"
+                value={formData.firstName}
                 helperText={errors.firstName}
-                error={errors.firstName ? true : false}
+                error={!!errors.firstName}
                 onChange={handleChange}
               />
             </Grid>
@@ -157,9 +155,10 @@ function Signup() {
                 id="lastName"
                 label="Last Name"
                 name="lastName"
-                autoComplete="lastName"
+                autoComplete="family-name"
+                value={formData.lastName}
                 helperText={errors.lastName}
-                error={errors.lastName ? true : false}
+                error={!!errors.lastName}
                 onChange={handleChange}
               />
             </Grid>
@@ -173,8 +172,9 @@ function Signup() {
                 label="User Name"
                 name="username"
                 autoComplete="username"
+                value={formData.username}
                 helperText={errors.username}
-                error={errors.username ? true : false}
+                error={!!errors.username}
                 onChange={handleChange}
               />
             </Grid>
@@ -187,10 +187,10 @@ function Signup() {
                 id="phoneNumber"
                 label="Phone Number"
                 name="phoneNumber"
-                autoComplete="phoneNumber"
-                pattern="[7-9]{1}[0-9]{9}"
+                autoComplete="tel"
+                value={formData.phoneNumber}
                 helperText={errors.phoneNumber}
-                error={errors.phoneNumber ? true : false}
+                error={!!errors.phoneNumber}
                 onChange={handleChange}
               />
             </Grid>
@@ -204,8 +204,9 @@ function Signup() {
                 label="Email Address"
                 name="email"
                 autoComplete="email"
+                value={formData.email}
                 helperText={errors.email}
-                error={errors.email ? true : false}
+                error={!!errors.email}
                 onChange={handleChange}
               />
             </Grid>
@@ -219,8 +220,9 @@ function Signup() {
                 label="Country"
                 name="country"
                 autoComplete="country"
+                value={formData.country}
                 helperText={errors.country}
-                error={errors.country ? true : false}
+                error={!!errors.country}
                 onChange={handleChange}
               />
             </Grid>
@@ -234,9 +236,10 @@ function Signup() {
                 label="Password"
                 type="password"
                 id="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
+                value={formData.password}
                 helperText={errors.password}
-                error={errors.password ? true : false}
+                error={!!errors.password}
                 onChange={handleChange}
               />
             </Grid>
@@ -249,9 +252,10 @@ function Signup() {
                 label="Confirm Password"
                 type="password"
                 id="confirmPassword"
-                autoComplete="current-password"
+                autoComplete="new-password"
+                value={formData.confirmPassword}
                 helperText={errors.confirmPassword}
-                error={errors.confirmPassword ? true : false}
+                error={!!errors.confirmPassword}
                 onChange={handleChange}
               />
             </Grid>
@@ -261,7 +265,6 @@ function Signup() {
             fullWidth
             variant="contained"
             color="primary"
-            onClick={handleSubmit}
             disabled={loading}
           >
             Sign Up

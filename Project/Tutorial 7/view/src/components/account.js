@@ -1,15 +1,14 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import { styled } from '@mui/material/styles';
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
-import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import axios from 'axios';
+import axios from '../util/axiosConfig'; // Import configured axios instance
 
 const ContentDiv = styled('div')({
   flexGrow: 1,
@@ -30,10 +29,10 @@ const ToolbarDiv = styled('div')({
   flexDirection: 'column'
 });
 
-const DetailsDiv = styled('div')({});
-
 const LocationText = styled('div')({
-  paddingLeft: '15px'
+  paddingLeft: '15px',
+  fontSize: '1.5rem',
+  fontWeight: 'bold'
 });
 
 const ButtonDiv = styled('div')({
@@ -46,297 +45,255 @@ const UploadButton = styled(Button)({
   marginTop: '8px'
 });
 
-class Account extends Component {
-  constructor(props) {
-    super(props);
+function Account() {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    username: '',
+    country: '',
+    profilePicture: ''
+  });
+  const [image, setImage] = useState(null);
+  const [uiLoading, setUiLoading] = useState(true);
+  const [buttonLoading, setButtonLoading] = useState(false);
+  const [imageError, setImageError] = useState('');
 
-    this.state = {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phoneNumber: '',
-      username: '',
-      country: '',
-      profilePicture: '',
-      uiLoading: true,
-      buttonLoading: false,
-      imageError: ''
-    };
-  }
-
-  componentDidMount = () => {
+  useEffect(() => {
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
 
-    // Simulate loading user data from localStorage
-    // Replace this with actual API call when backend is ready
-    setTimeout(() => {
-      this.setState({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        phoneNumber: '1234567890',
-        username: 'johndoe',
-        country: 'USA',
-        uiLoading: false,
-        profilePicture: ''
-      });
-    }, 500);
-
-    /* Uncomment this when you have a backend
+    // Real API call to fetch user data
     axios
       .get('/user')
       .then((response) => {
-        this.setState({
+        console.log('Account data fetched:', response.data);
+        setFormData({
           firstName: response.data.userCredentials.firstName,
           lastName: response.data.userCredentials.lastName,
           email: response.data.userCredentials.email,
           phoneNumber: response.data.userCredentials.phoneNumber,
           username: response.data.userCredentials.username,
           country: response.data.userCredentials.country,
-          uiLoading: false
+          profilePicture: response.data.userCredentials.imageUrl || ''
         });
+        setUiLoading(false);
       })
       .catch((error) => {
-        if (error.response && error.response.status === 403) {
-          this.props.history.push('/login');
-        }
-        console.log(error);
-        this.setState({ errorMsg: 'Error in retrieving the data' });
+        console.error('Error fetching account data:', error);
+        setUiLoading(false);
       });
-    */
-  };
+  }, []);
 
-  handleChange = (event) => {
-    this.setState({
+  const handleChange = (event) => {
+    setFormData({
+      ...formData,
       [event.target.name]: event.target.value
     });
   };
 
-  handleImageChange = (event) => {
-    this.setState({
-      image: event.target.files[0]
-    });
+  const handleImageChange = (event) => {
+    setImage(event.target.files[0]);
+    setImageError('');
   };
 
-  profilePictureHandler = (event) => {
+  const profilePictureHandler = (event) => {
     event.preventDefault();
-    this.setState({
-      uiLoading: true
-    });
-
-    // Simulate image upload
-    // Replace this with actual API call when backend is ready
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      this.setState({
-        profilePicture: reader.result,
-        uiLoading: false
-      });
-    };
-    if (this.state.image) {
-      reader.readAsDataURL(this.state.image);
+    
+    if (!image) {
+      setImageError('Please select an image first');
+      return;
     }
 
-    /* Uncomment this when you have a backend
+    setUiLoading(true);
+
+    // Real API call to upload profile picture
     const authToken = localStorage.getItem('AuthToken');
-    let form_data = new FormData();
-    form_data.append('image', this.state.image);
-    form_data.append('content', this.state.content);
+    const formDataToSend = new FormData();
+    formDataToSend.append('image', image);
+    
     axios.defaults.headers.common = { Authorization: `${authToken}` };
     axios
-      .post('/user/image', form_data, {
+      .post('/user/image', formDataToSend, {
         headers: {
           'content-type': 'multipart/form-data'
         }
       })
       .then(() => {
+        console.log('Profile picture uploaded successfully');
         window.location.reload();
       })
       .catch((error) => {
-        if (error.response && error.response.status === 403) {
-          this.props.history.push('/login');
-        }
-        console.log(error);
-        this.setState({
-          uiLoading: false,
-          imageError: 'Error in posting the data'
-        });
+        console.error('Error uploading profile picture:', error);
+        setUiLoading(false);
+        setImageError('Error uploading image. Please use PNG or JPG format.');
       });
-    */
   };
 
-  updateFormValues = (event) => {
+  const updateFormValues = (event) => {
     event.preventDefault();
-    this.setState({ buttonLoading: true });
+    setButtonLoading(true);
 
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
 
-    const formRequest = {
-      firstName: this.state.firstName,
-      lastName: this.state.lastName,
-      country: this.state.country
+    const updateData = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      country: formData.country
     };
 
-    // Simulate update - just show success
-    // Replace this with actual API call when backend is ready
-    setTimeout(() => {
-      this.setState({ buttonLoading: false });
-      alert('Profile updated successfully!');
-    }, 1000);
+    console.log('Updating user profile:', updateData);
 
-    /* Uncomment this when you have a backend
+    // Real API call to update user details
     axios
-      .post('/user', formRequest)
+      .post('/user', updateData)
       .then(() => {
-        this.setState({ buttonLoading: false });
+        console.log('Profile updated successfully');
+        setButtonLoading(false);
+        alert('Profile updated successfully!');
       })
       .catch((error) => {
-        if (error.response && error.response.status === 403) {
-          this.props.history.push('/login');
-        }
-        console.log(error);
-        this.setState({
-          buttonLoading: false
-        });
+        console.error('Error updating profile:', error);
+        setButtonLoading(false);
+        alert('Error updating profile');
       });
-    */
   };
 
-  render() {
-    if (this.state.uiLoading === true) {
-      return (
-        <ContentDiv>
-          {this.state.uiLoading && <UiProgress size={150} />}
-        </ContentDiv>
-      );
-    } else {
-      return (
-        <ContentDiv>
-          <ToolbarDiv />
-          <Card>
-            <CardContent>
-              <DetailsDiv>
-                <LocationText variant="h4">Personal Details</LocationText>
-                <br />
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      id="firstName"
-                      label="First Name"
-                      variant="outlined"
-                      name="firstName"
-                      value={this.state.firstName}
-                      onChange={this.handleChange}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      id="lastName"
-                      label="Last Name"
-                      variant="outlined"
-                      name="lastName"
-                      value={this.state.lastName}
-                      onChange={this.handleChange}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      id="email"
-                      label="Email"
-                      variant="outlined"
-                      name="email"
-                      value={this.state.email}
-                      disabled
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      id="phone"
-                      label="Phone Number"
-                      variant="outlined"
-                      name="phoneNumber"
-                      disabled
-                      value={this.state.phoneNumber}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      id="username"
-                      label="Username"
-                      variant="outlined"
-                      name="username"
-                      disabled
-                      value={this.state.username}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      id="country"
-                      label="Country"
-                      variant="outlined"
-                      name="country"
-                      value={this.state.country}
-                      onChange={this.handleChange}
-                    />
-                  </Grid>
-                </Grid>
-              </DetailsDiv>
-              <ButtonDiv>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={this.updateFormValues}
-                  disabled={
-                    this.state.buttonLoading ||
-                    !this.state.firstName ||
-                    !this.state.lastName ||
-                    !this.state.country
-                  }
-                  style={{ marginTop: '20px' }}
-                >
-                  Save details
-                  {this.state.buttonLoading && <CircularProgress size={30} />}
-                </Button>
-              </ButtonDiv>
-            </CardContent>
-          </Card>
-          <br />
-          <Card>
-            <CardContent>
-              <LocationText variant="h4">Profile Picture</LocationText>
-              <br />
-              <input type="file" onChange={this.handleImageChange} />
-              {this.state.imageError ? (
-                <div style={{ color: 'red', marginTop: '10px' }}>
-                  Wrong Image Format || Supported Format are PNG and JPG
-                </div>
-              ) : null}
-            </CardContent>
-            <CardActions>
-              <UploadButton
-                variant="contained"
-                color="primary"
-                component="span"
-                onClick={this.profilePictureHandler}
-                disabled={this.state.buttonLoading}
-                startIcon={<CloudUploadIcon />}
-              >
-                Upload Photo
-              </UploadButton>
-            </CardActions>
-          </Card>
-        </ContentDiv>
-      );
-    }
+  if (uiLoading) {
+    return (
+      <ContentDiv>
+        <UiProgress size={150} />
+      </ContentDiv>
+    );
   }
+
+  return (
+    <ContentDiv>
+      <ToolbarDiv />
+      <Card>
+        <CardContent>
+          <LocationText>Personal Details</LocationText>
+          <br />
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="firstName"
+                label="First Name"
+                variant="outlined"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="lastName"
+                label="Last Name"
+                variant="outlined"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="email"
+                label="Email"
+                variant="outlined"
+                name="email"
+                value={formData.email}
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="phone"
+                label="Phone Number"
+                variant="outlined"
+                name="phoneNumber"
+                disabled
+                value={formData.phoneNumber}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="username"
+                label="Username"
+                variant="outlined"
+                name="username"
+                disabled
+                value={formData.username}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                id="country"
+                label="Country"
+                variant="outlined"
+                name="country"
+                value={formData.country}
+                onChange={handleChange}
+              />
+            </Grid>
+          </Grid>
+          <ButtonDiv>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={updateFormValues}
+              disabled={
+                buttonLoading ||
+                !formData.firstName ||
+                !formData.lastName ||
+                !formData.country
+              }
+              style={{ marginTop: '20px' }}
+            >
+              Save details
+              {buttonLoading && <CircularProgress size={30} style={{ marginLeft: '10px' }} />}
+            </Button>
+          </ButtonDiv>
+        </CardContent>
+      </Card>
+      <br />
+      <Card>
+        <CardContent>
+          <LocationText>Profile Picture</LocationText>
+          <br />
+          <input 
+            type="file" 
+            onChange={handleImageChange}
+            accept="image/png, image/jpeg, image/jpg"
+          />
+          {imageError && (
+            <div style={{ color: 'red', marginTop: '10px' }}>
+              {imageError}
+            </div>
+          )}
+        </CardContent>
+        <CardActions>
+          <UploadButton
+            variant="contained"
+            color="primary"
+            component="span"
+            onClick={profilePictureHandler}
+            disabled={uiLoading}
+            startIcon={<CloudUploadIcon />}
+          >
+            Upload Photo
+          </UploadButton>
+        </CardActions>
+      </Card>
+    </ContentDiv>
+  );
 }
 
 export default Account;
