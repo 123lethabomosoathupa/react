@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import CircularProgress from '@mui/material/CircularProgress';
 import { styled } from '@mui/material/styles';
-import axios from 'axios';
+import axios from '../util/axiosConfig';
 
 const StyledContainer = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(8),
@@ -75,45 +75,27 @@ function Signup() {
   const handleSubmit = (event) => {
     event.preventDefault();
     setLoading(true);
-    setErrors({}); // Clear previous errors
+    setErrors({});
 
-    // Client-side validation
     if (formData.password !== formData.confirmPassword) {
       setErrors({ confirmPassword: 'Passwords do not match' });
       setLoading(false);
       return;
     }
 
-    // Log the data being sent (for debugging)
-    console.log('Attempting signup with data:', {
-      ...formData,
-      password: '***',
-      confirmPassword: '***'
-    });
-
-    // Real API call to Firebase backend
     axios
-      .post('/signup', formData)
+      .post('/auth/signup', formData)
       .then((response) => {
-        console.log('Signup successful:', response.data);
         localStorage.setItem('AuthToken', `Bearer ${response.data.token}`);
         setLoading(false);
         navigate('/');
       })
       .catch((error) => {
-        console.error('Signup error:', error);
-        console.error('Error response:', error.response);
-        
         if (error.response) {
-          // Server responded with an error
           setErrors(error.response.data || { general: 'Signup failed. Please try again.' });
         } else if (error.request) {
-          // Request was made but no response received
-          setErrors({ 
-            general: 'Cannot connect to server. Please check your API URL in axiosConfig.js' 
-          });
+          setErrors({ general: 'Cannot connect to server.' });
         } else {
-          // Something else happened
           setErrors({ general: error.message });
         }
         setLoading(false);
@@ -132,7 +114,7 @@ function Signup() {
         </Typography>
         <StyledForm noValidate onSubmit={handleSubmit}>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 variant="outlined"
                 required
@@ -147,7 +129,7 @@ function Signup() {
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 variant="outlined"
                 required
@@ -162,8 +144,7 @@ function Signup() {
                 onChange={handleChange}
               />
             </Grid>
-
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 variant="outlined"
                 required
@@ -171,15 +152,13 @@ function Signup() {
                 id="username"
                 label="User Name"
                 name="username"
-                autoComplete="username"
                 value={formData.username}
                 helperText={errors.username}
                 error={!!errors.username}
                 onChange={handleChange}
               />
             </Grid>
-
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 variant="outlined"
                 required
@@ -187,15 +166,13 @@ function Signup() {
                 id="phoneNumber"
                 label="Phone Number"
                 name="phoneNumber"
-                autoComplete="tel"
                 value={formData.phoneNumber}
                 helperText={errors.phoneNumber}
                 error={!!errors.phoneNumber}
                 onChange={handleChange}
               />
             </Grid>
-
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 variant="outlined"
                 required
@@ -210,8 +187,7 @@ function Signup() {
                 onChange={handleChange}
               />
             </Grid>
-
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 variant="outlined"
                 required
@@ -219,15 +195,13 @@ function Signup() {
                 id="country"
                 label="Country"
                 name="country"
-                autoComplete="country"
                 value={formData.country}
                 helperText={errors.country}
                 error={!!errors.country}
                 onChange={handleChange}
               />
             </Grid>
-
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 variant="outlined"
                 required
@@ -236,14 +210,13 @@ function Signup() {
                 label="Password"
                 type="password"
                 id="password"
-                autoComplete="new-password"
                 value={formData.password}
                 helperText={errors.password}
                 error={!!errors.password}
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 variant="outlined"
                 required
@@ -252,7 +225,6 @@ function Signup() {
                 label="Confirm Password"
                 type="password"
                 id="confirmPassword"
-                autoComplete="new-password"
                 value={formData.confirmPassword}
                 helperText={errors.confirmPassword}
                 error={!!errors.confirmPassword}
@@ -271,7 +243,7 @@ function Signup() {
             {loading && <ProgressStyle size={30} />}
           </StyledButton>
           <Grid container justifyContent="flex-end">
-            <Grid item>
+            <Grid>
               <Link href="/login" variant="body2">
                 Already have an account? Sign in
               </Link>

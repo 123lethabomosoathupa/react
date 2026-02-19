@@ -8,7 +8,7 @@ import Grid from '@mui/material/Grid';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import axios from '../util/axiosConfig'; // Import configured axios instance
+import axios from '../util/axiosConfig';
 
 const ContentDiv = styled('div')({
   flexGrow: 1,
@@ -22,11 +22,6 @@ const UiProgress = styled(CircularProgress)({
   width: '31px',
   left: '45%',
   top: '35%'
-});
-
-const ToolbarDiv = styled('div')({
-  display: 'flex',
-  flexDirection: 'column'
 });
 
 const LocationText = styled('div')({
@@ -55,7 +50,6 @@ function Account() {
     country: '',
     profilePicture: ''
   });
-  const [image, setImage] = useState(null);
   const [uiLoading, setUiLoading] = useState(true);
   const [buttonLoading, setButtonLoading] = useState(false);
   const [imageError, setImageError] = useState('');
@@ -64,11 +58,9 @@ function Account() {
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
 
-    // Real API call to fetch user data
     axios
-      .get('/user')
+      .get('/auth/user')
       .then((response) => {
-        console.log('Account data fetched:', response.data);
         setFormData({
           firstName: response.data.userCredentials.firstName,
           lastName: response.data.userCredentials.lastName,
@@ -93,44 +85,6 @@ function Account() {
     });
   };
 
-  const handleImageChange = (event) => {
-    setImage(event.target.files[0]);
-    setImageError('');
-  };
-
-  const profilePictureHandler = (event) => {
-    event.preventDefault();
-    
-    if (!image) {
-      setImageError('Please select an image first');
-      return;
-    }
-
-    setUiLoading(true);
-
-    // Real API call to upload profile picture
-    const authToken = localStorage.getItem('AuthToken');
-    const formDataToSend = new FormData();
-    formDataToSend.append('image', image);
-    
-    axios.defaults.headers.common = { Authorization: `${authToken}` };
-    axios
-      .post('/user/image', formDataToSend, {
-        headers: {
-          'content-type': 'multipart/form-data'
-        }
-      })
-      .then(() => {
-        console.log('Profile picture uploaded successfully');
-        window.location.reload();
-      })
-      .catch((error) => {
-        console.error('Error uploading profile picture:', error);
-        setUiLoading(false);
-        setImageError('Error uploading image. Please use PNG or JPG format.');
-      });
-  };
-
   const updateFormValues = (event) => {
     event.preventDefault();
     setButtonLoading(true);
@@ -144,13 +98,9 @@ function Account() {
       country: formData.country
     };
 
-    console.log('Updating user profile:', updateData);
-
-    // Real API call to update user details
     axios
-      .post('/user', updateData)
+      .post('/auth/user', updateData)
       .then(() => {
-        console.log('Profile updated successfully');
         setButtonLoading(false);
         alert('Profile updated successfully!');
       })
@@ -171,13 +121,12 @@ function Account() {
 
   return (
     <ContentDiv>
-      <ToolbarDiv />
       <Card>
         <CardContent>
           <LocationText>Personal Details</LocationText>
           <br />
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 id="firstName"
@@ -188,7 +137,7 @@ function Account() {
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 id="lastName"
@@ -199,7 +148,7 @@ function Account() {
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 id="email"
@@ -210,7 +159,7 @@ function Account() {
                 disabled
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 id="phone"
@@ -221,7 +170,7 @@ function Account() {
                 value={formData.phoneNumber}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 id="username"
@@ -232,7 +181,7 @@ function Account() {
                 value={formData.username}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 id="country"
@@ -268,24 +217,25 @@ function Account() {
         <CardContent>
           <LocationText>Profile Picture</LocationText>
           <br />
-          <input 
-            type="file" 
-            onChange={handleImageChange}
+          <input
+            type="file"
             accept="image/png, image/jpeg, image/jpg"
+            disabled
           />
           {imageError && (
             <div style={{ color: 'red', marginTop: '10px' }}>
               {imageError}
             </div>
           )}
+          <p style={{ color: 'gray', fontSize: '0.85rem' }}>
+            Profile photo upload coming soon.
+          </p>
         </CardContent>
         <CardActions>
           <UploadButton
             variant="contained"
             color="primary"
-            component="span"
-            onClick={profilePictureHandler}
-            disabled={uiLoading}
+            disabled
             startIcon={<CloudUploadIcon />}
           >
             Upload Photo

@@ -14,7 +14,7 @@ import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import Grid from '@mui/material/Grid';
-import axios from '../util/axiosConfig'; // Import configured axios instance
+import axios from '../util/axiosConfig';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -63,11 +63,9 @@ function Todo() {
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
 
-    // Real API call to fetch todos
     axios
       .get('/todos')
       .then((response) => {
-        console.log('Todos fetched successfully:', response.data);
         setTodos(response.data);
         setUiLoading(false);
       })
@@ -81,14 +79,10 @@ function Todo() {
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
 
-    console.log('Deleting todo:', id);
-
-    // Real API call to delete todo
     axios
-      .delete(`/todo/${id}`)
+      .delete(`/todos/todo/${id}`)
       .then(() => {
-        console.log('Todo deleted successfully');
-        window.location.reload();
+        setTodos((prev) => prev.filter((t) => t.todoId !== id));
       })
       .catch((err) => {
         console.error('Error deleting todo:', err);
@@ -111,41 +105,33 @@ function Todo() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    const userTodo = {
-      title,
-      body
-    };
-
-    let options = {};
-    if (buttonType === 'Edit') {
-      console.log('Updating todo:', todoId, userTodo);
-      // Real API call to update todo
-      options = {
-        url: `/todo/${todoId}`,
-        method: 'put',
-        data: userTodo
-      };
-    } else {
-      console.log('Creating new todo:', userTodo);
-      // Real API call to create todo
-      options = {
-        url: '/todo',
-        method: 'post',
-        data: userTodo
-      };
-    }
+    const userTodo = { title, body };
 
     const authToken = localStorage.getItem('AuthToken');
     axios.defaults.headers.common = { Authorization: `${authToken}` };
+
+    let options = {};
+    if (buttonType === 'Edit') {
+      options = { url: `/todos/todo/${todoId}`, method: 'put', data: userTodo };
+    } else {
+      options = { url: '/todos/todo', method: 'post', data: userTodo };
+    }
+
     axios(options)
-      .then(() => {
-        console.log('Todo operation successful');
+      .then((response) => {
         setOpen(false);
-        window.location.reload();
+        if (buttonType === 'Edit') {
+          setTodos((prev) =>
+            prev.map((t) =>
+              t.todoId === todoId ? { ...t, title, body } : t
+            )
+          );
+        } else {
+          setTodos((prev) => [response.data, ...prev]);
+        }
       })
       .catch((error) => {
         console.error('Error with todo operation:', error);
-        setOpen(true);
       });
   };
 
@@ -156,13 +142,8 @@ function Todo() {
     setOpen(true);
   };
 
-  const handleClose = () => {
-    setOpen(false);
-  };
-
-  const handleViewClose = () => {
-    setViewOpen(false);
-  };
+  const handleClose = () => setOpen(false);
+  const handleViewClose = () => setViewOpen(false);
 
   const dialogTitle = buttonType === 'Edit' ? 'Edit Todo' : 'Create a new Todo';
   const submitButtonText = buttonType === 'Edit' ? 'Save' : 'Submit';
@@ -177,8 +158,8 @@ function Todo() {
 
   return (
     <ContentDiv>
-      <FloatingButton 
-        variant="contained" 
+      <FloatingButton
+        variant="contained"
         color="primary"
         onClick={handleClickOpen}
       >
@@ -195,7 +176,6 @@ function Todo() {
             label="Todo Title"
             type="text"
             fullWidth
-            name="title"
             onChange={(e) => setTitle(e.target.value)}
             value={title}
           />
@@ -205,7 +185,6 @@ function Todo() {
             label="Todo Details"
             type="text"
             fullWidth
-            name="body"
             multiline
             rows={4}
             onChange={(e) => setBody(e.target.value)}
@@ -224,7 +203,7 @@ function Todo() {
 
       <Grid container spacing={2}>
         {todos.map((todo) => (
-          <Grid item xs={12} sm={6} key={todo.todoId}>
+          <Grid size={{ xs: 12, sm: 6 }} key={todo.todoId}>
             <StyledCard variant="outlined">
               <CardContent>
                 <Typography variant="h5" component="h2">
@@ -259,29 +238,21 @@ function Todo() {
         <DialogContent>
           <TextField
             margin="dense"
-            id="todoTitle"
             label="Todo Title"
             type="text"
             fullWidth
-            name="title"
             value={title}
-            InputProps={{
-              readOnly: true
-            }}
+            InputProps={{ readOnly: true }}
           />
           <TextField
             margin="dense"
-            id="todoDetails"
             label="Todo Details"
             type="text"
             fullWidth
-            name="body"
             multiline
             rows={4}
             value={body}
-            InputProps={{
-              readOnly: true
-            }}
+            InputProps={{ readOnly: true }}
           />
         </DialogContent>
         <DialogActions>

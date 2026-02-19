@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import CircularProgress from '@mui/material/CircularProgress';
 import { styled } from '@mui/material/styles';
-import axios from 'axios';
+import axios from '../util/axiosConfig';
 
 const StyledContainer = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(8),
@@ -60,34 +60,25 @@ function Login() {
   const handleSubmit = (event) => {
     event.preventDefault();
     setLoading(true);
-    setErrors({}); // Clear previous errors
-    
+    setErrors({});
+
     const userData = {
       email,
       password
     };
-    
-    console.log('Attempting login with email:', email);
 
-    // Real API call to Firebase backend
     axios
-      .post('/login', userData)
+      .post('/auth/login', userData)
       .then((response) => {
-        console.log('Login successful');
         localStorage.setItem('AuthToken', `Bearer ${response.data.token}`);
         setLoading(false);
         navigate('/');
       })
       .catch((error) => {
-        console.error('Login error:', error);
-        console.error('Error response:', error.response);
-        
         if (error.response) {
           setErrors(error.response.data || { general: 'Login failed. Please try again.' });
         } else if (error.request) {
-          setErrors({ 
-            general: 'Cannot connect to server. Please check your API URL in axiosConfig.js' 
-          });
+          setErrors({ general: 'Cannot connect to server.' });
         } else {
           setErrors({ general: error.message });
         }
@@ -147,7 +138,7 @@ function Login() {
             {loading && <ProgressStyle size={30} />}
           </StyledButton>
           <Grid container>
-            <Grid item>
+            <Grid>
               <Link href="/signup" variant="body2">
                 {"Don't have an account? Sign Up"}
               </Link>

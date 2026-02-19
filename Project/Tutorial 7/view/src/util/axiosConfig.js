@@ -9,7 +9,7 @@ import axios from 'axios';
 // 2. Copy the URL shown in the terminal after deployment
 // 3. Replace the URL below
 
-const API_URL = 'https://us-central1-todolist-fc678shd.cloudfunctions.net/api';
+const API_URL = 'http://localhost:5000';
 
 // Create axios instance with base configuration
 const axiosInstance = axios.create({

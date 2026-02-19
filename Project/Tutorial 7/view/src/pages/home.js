@@ -18,7 +18,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import AccountBoxIcon from '@mui/icons-material/AccountBox';
 import NotesIcon from '@mui/icons-material/Notes';
 import { styled } from '@mui/material/styles';
-import axios from '../util/axiosConfig'; // Import configured axios instance
+import axios from '../util/axiosConfig';
 
 const drawerWidth = 240;
 
@@ -86,14 +86,11 @@ function Home() {
       return;
     }
 
-    // Set authorization header
     axios.defaults.headers.common = { Authorization: `${authToken}` };
 
-    // Real API call to fetch user data from Firebase
     axios
-      .get('/user')
+      .get('/auth/user')
       .then((response) => {
-        console.log('User data fetched successfully:', response.data);
         setUserData({
           firstName: response.data.userCredentials.firstName,
           lastName: response.data.userCredentials.lastName,
@@ -108,7 +105,6 @@ function Home() {
       .catch((error) => {
         console.error('Error fetching user data:', error);
         if (error.response && error.response.status === 403) {
-          console.log('Authentication failed, redirecting to login');
           localStorage.removeItem('AuthToken');
           navigate('/login');
         }
@@ -116,13 +112,8 @@ function Home() {
       });
   }, [navigate]);
 
-  const loadAccountPage = () => {
-    setRenderAccount(true);
-  };
-
-  const loadTodoPage = () => {
-    setRenderAccount(false);
-  };
+  const loadAccountPage = () => setRenderAccount(true);
+  const loadTodoPage = () => setRenderAccount(false);
 
   const logoutHandler = () => {
     localStorage.removeItem('AuthToken');
@@ -158,21 +149,21 @@ function Home() {
         </center>
         <Divider />
         <List>
-          <ListItem button key="Todo" onClick={loadTodoPage}>
+          <ListItem onClick={loadTodoPage} sx={{ cursor: 'pointer' }}>
             <ListItemIcon>
               <NotesIcon />
             </ListItemIcon>
             <ListItemText primary="Todo" />
           </ListItem>
 
-          <ListItem button key="Account" onClick={loadAccountPage}>
+          <ListItem onClick={loadAccountPage} sx={{ cursor: 'pointer' }}>
             <ListItemIcon>
               <AccountBoxIcon />
             </ListItemIcon>
             <ListItemText primary="Account" />
           </ListItem>
 
-          <ListItem button key="Logout" onClick={logoutHandler}>
+          <ListItem onClick={logoutHandler} sx={{ cursor: 'pointer' }}>
             <ListItemIcon>
               <ExitToAppIcon />
             </ListItemIcon>
